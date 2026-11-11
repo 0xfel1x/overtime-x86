@@ -44,7 +44,6 @@ Package.resolved
 *~
 .vscode/
 .idea/
-.claude/
 
 # Local example project, not part of the repository
 Example/
