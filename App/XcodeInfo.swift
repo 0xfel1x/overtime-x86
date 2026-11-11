@@ -20,6 +20,7 @@ enum InspectError: LocalizedError {
     case notApp(String)
     case notXcode(String)
     case noSDK(String)
+    case missing(String)
 
     var errorDescription: String? {
         switch self {
@@ -29,6 +30,8 @@ enum InspectError: LocalizedError {
             return "“\(name)” is not an app. Drop the Xcode apps themselves."
         case .notXcode(let name):
             return "“\(name)” is not Xcode."
+        case .missing(let name):
+            return "“\(name)” was not found. It may have been moved or deleted."
         case .noSDK(let name):
             return "“\(name)” contains no macOS SDK. It may be incomplete; unpack it again."
         }
@@ -41,6 +44,7 @@ enum Inspector {
     static func inspect(_ rawURL: URL) throws -> XcodeInfo {
         let url = rawURL.resolvingSymlinksInPath().standardizedFileURL
         let fileName = url.lastPathComponent
+        guard FileManager.default.fileExists(atPath: url.path) else { throw InspectError.missing(fileName) }
         switch url.pathExtension.lowercased() {
         case "xip": throw InspectError.xip(fileName)
         case "app": break

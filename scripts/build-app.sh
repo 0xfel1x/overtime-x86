@@ -15,8 +15,18 @@ mkdir -p "$app/Contents/MacOS" "$app/Contents/Resources/overtime"
 xcrun swiftc -O -swift-version 5 -parse-as-library -target x86_64-apple-macos13.0 \
     "$OT_ROOT"/App/*.swift -o "$app/Contents/MacOS/Overtime"
 cp "$OT_ROOT/App/Info.plist" "$app/Contents/Info.plist"
+cp "$OT_ROOT/App/Overtime.icns" "$app/Contents/Resources/Overtime.icns"
 cp -R "$OT_ROOT/lib" "$OT_ROOT/scripts" "$OT_ROOT/bin" "$app/Contents/Resources/overtime/"
 rm -f -- "$app/Contents/Resources/overtime/scripts/build-app.sh"
 find "$app" -name .DS_Store -delete
 codesign --force --sign - "$app"
 ot_info "built $app"
+
+# --zip additionally packs the app for a release download.
+if [[ ${1:-} == --zip ]]; then
+    version=$(plutil -extract CFBundleShortVersionString raw "$app/Contents/Info.plist")
+    zip="$OT_ROOT/build/Overtime-$version.zip"
+    rm -f -- "$zip"
+    ditto -c -k --keepParent "$app" "$zip"
+    ot_info "packed $zip"
+fi

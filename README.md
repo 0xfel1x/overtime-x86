@@ -34,8 +34,16 @@ SDK files or Xcode components, and never downloads any from third parties. Read
 
 ### With the app
 
+Download `Overtime-<version>.zip` from the
+[Releases](https://github.com/0xfel1x/overtime-x86/releases) page, unpack it and open
+**Overtime**. All you need besides it are the two Xcode apps.
+
+The app is not signed with an Apple Developer ID, so macOS blocks the first start. Open it
+once, dismiss the warning, then go to System Settings > Privacy & Security and click
+**Open Anyway**. To build the app yourself instead:
+
 ```sh
-scripts/build-app.sh
+scripts/build-app.sh          # add --zip to also pack it for a release
 open build/Overtime.app
 ```
 
@@ -46,7 +54,7 @@ out which is the Xcode that runs on your Mac and which is the newer one; Xcodes 
 the prepared Xcode and to copy the `PATH` line for the Terminal.
 
 The app copies the scripts and commands to `~/Library/Developer/Overtime`, so it works
-without this checkout afterwards. It is signed ad hoc for the Mac it was built on.
+without a checkout of this repository.
 
 ### In Terminal
 

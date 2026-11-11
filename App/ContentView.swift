@@ -36,6 +36,10 @@ struct ContentView: View {
                     .clipShape(RoundedRectangle(cornerRadius: 6))
                 }
             }
+
+            Text("Release \(Bundle.main.infoDictionary?["CFBundleShortVersionString"] as? String ?? "") · Overtime by 0xfel1x")
+                .font(.caption).foregroundStyle(.secondary)
+                .frame(maxWidth: .infinity, alignment: .trailing)
         }
         .padding(22)
         .frame(width: 600)
