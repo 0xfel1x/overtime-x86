@@ -58,9 +58,9 @@ the Terminal.
 
 **In Xcode:** open your projects with the prepared copy, `Xcode-SDK<version>` in the
 Applications folder. It builds with the newer SDK and the matching Swift compiler by itself.
-To tell it apart from your normal Xcode, look at Xcode > About Xcode or the welcome window:
-the copy shows a version like "26.3 + SDK 27.2". In a project, Build Settings > Base SDK
-shows the SDK in use.
+To tell it apart from your normal Xcode, look at the menu bar, the Dock or the app
+switcher: the copy is called "Xcode SDK 27.2" there. In a project, Build Settings >
+Base SDK shows the SDK in use.
 `xcodebuild` works the same way:
 `DEVELOPER_DIR=/Applications/Xcode-SDK<version>.app/Contents/Developer xcodebuild ...`
 

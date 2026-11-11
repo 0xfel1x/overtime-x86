@@ -42,12 +42,15 @@ ln -sfn -- "$OT_SDK" "$sdks/MacOSX$OT_SDK_VERSION.sdk"
 DEVELOPER_DIR="$clone/Contents/Developer" xcodebuild -showsdks 2>/dev/null | grep -q "$OT_SDK_CANONICAL" \
     || ot_die "the clone does not list $OT_SDK_CANONICAL"
 
-# Make the copy recognisable: About Xcode, the welcome window and
-# `xcodebuild -version` then show for example "26.3 + SDK 27.2". Only the display
-# string in the copy's Info.plist changes; the version recorded in built apps
-# (DTXcode) comes from another file and stays as it is.
-shown=$(plutil -extract CFBundleShortVersionString raw "$OT_HOST_XCODE/Contents/Info.plist")
-plutil -replace CFBundleShortVersionString -string "$shown + SDK $OT_SDK_VERSION" "$clone/Contents/Info.plist"
+# Make the copy recognisable: the menu bar, the Dock and the app switcher then show
+# "Xcode SDK 27.2" instead of "Xcode". Only the two name entries in the copy's
+# Info.plist change. The version is left alone: Xcode's About window reads only
+# the digits of it, so text added there would show up as a wrong version number.
+label="Xcode SDK $OT_SDK_VERSION"
+plutil -replace CFBundleName -string "$label" "$clone/Contents/Info.plist"
+plutil -replace CFBundleDisplayName -string "$label" "$clone/Contents/Info.plist"
+plutil -replace CFBundleShortVersionString -string \
+    "$(plutil -extract CFBundleShortVersionString raw "$OT_HOST_XCODE/Contents/Info.plist")" "$clone/Contents/Info.plist"
 
 # Xcode shows its platform chooser once for every SDK build it has not presented
 # yet and opens no project until it is dismissed. Mark the linked SDK as presented
