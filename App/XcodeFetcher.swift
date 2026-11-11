@@ -13,6 +13,8 @@ final class XcodeFetcher: ObservableObject {
     @Published private(set) var phase: Phase = .idle
     @Published private(set) var status = ""
     @Published private(set) var version: String?
+    /// Share of the unpacking that is done (0...1), while unpacking.
+    @Published private(set) var progress: Double?
 
     /// Called with the unpacked Xcode app.
     var onReady: ((URL) -> Void)?
@@ -114,8 +116,7 @@ final class XcodeFetcher: ObservableObject {
 
         let size = Int64((try? xip.resourceValues(forKeys: [.fileSizeKey]).fileSize) ?? 0)
         let needed = max(size * 6, 15_000_000_000)
-        let free = (try? parent.resourceValues(forKeys: [.volumeAvailableCapacityForImportantUsageKey])
-            .volumeAvailableCapacityForImportantUsage) ?? Int64.max
+        let free = Self.freeBytes(at: parent) ?? Int64.max
         guard free >= needed else {
             let amount = ByteCountFormatter.string(fromByteCount: needed, countStyle: .file)
             fail("Not enough free disk space to unpack Xcode. About \(amount) are needed.")
@@ -131,7 +132,9 @@ final class XcodeFetcher: ObservableObject {
         }
 
         phase = .unpacking
+        progress = 0
         status = "Unpacking \(xip.lastPathComponent). This takes several minutes."
+        watchUnpacking(of: xip, archiveSize: size, freeAtStart: free)
         let task = Process()
         task.executableURL = URL(fileURLWithPath: "/usr/bin/xip")
         task.arguments = ["--expand", xip.path]
@@ -155,7 +158,57 @@ final class XcodeFetcher: ObservableObject {
         }
     }
 
+    /// xip reports no progress itself. The archive states how large its content
+    /// is once unpacked, so the progress is the disk space used up since the
+    /// start, measured against that size.
+    private func watchUnpacking(of xip: URL, archiveSize: Int64, freeAtStart: Int64) {
+        let name = xip.lastPathComponent
+        let folder = workFolder
+        DispatchQueue.global(qos: .utility).async {
+            let expected = Self.unpackedSize(of: xip) ?? archiveSize * 4
+            DispatchQueue.main.async {
+                guard self.phase == .unpacking, expected > 0 else { return }
+                let timer = DispatchSource.makeTimerSource(queue: .main)
+                timer.schedule(deadline: .now() + 1, repeating: 1)
+                timer.setEventHandler { [weak self] in
+                    guard let self, self.phase == .unpacking else { return }
+                    let free = Self.freeBytes(at: folder) ?? freeAtStart
+                    let share = min(0.99, max(0, Double(freeAtStart - free) / Double(expected)))
+                    // Never move backwards when something else frees disk space.
+                    self.progress = max(self.progress ?? 0, share)
+                    self.status = "Unpacking \(name): \(Int((self.progress ?? 0) * 100)) %. This takes several minutes."
+                }
+                timer.resume()
+                self.timer = timer
+            }
+        }
+    }
+
+    /// Size of the unpacked content as recorded in the archive's metadata.
+    static func unpackedSize(of xip: URL) -> Int64? {
+        let folder = FileManager.default.temporaryDirectory.appendingPathComponent("overtime-xip-\(UUID().uuidString)")
+        defer { try? FileManager.default.removeItem(at: folder) }
+        guard (try? FileManager.default.createDirectory(at: folder, withIntermediateDirectories: true)) != nil else { return nil }
+        let task = Process()
+        task.executableURL = URL(fileURLWithPath: "/usr/bin/xar")
+        task.arguments = ["-xf", xip.path, "-C", folder.path, "Metadata"]
+        task.standardOutput = FileHandle.nullDevice
+        task.standardError = FileHandle.nullDevice
+        guard (try? task.run()) != nil else { return nil }
+        task.waitUntilExit()
+        let metadata = NSDictionary(contentsOf: folder.appendingPathComponent("Metadata"))
+        guard let size = (metadata?["UncompressedSize"] as? NSNumber)?.int64Value, size > 0 else { return nil }
+        return size
+    }
+
+    static func freeBytes(at folder: URL) -> Int64? {
+        let fresh = URL(fileURLWithPath: folder.path)
+        return (try? fresh.resourceValues(forKeys: [.volumeAvailableCapacityKey]).volumeAvailableCapacity).map(Int64.init)
+    }
+
     private func unpacked(status code: Int32, output: String) {
+        stopTimer()
+        progress = nil
         let apps = ((try? FileManager.default.contentsOfDirectory(at: workFolder, includingPropertiesForKeys: nil)) ?? [])
             .filter { $0.pathExtension == "app" }
         guard code == 0, let app = apps.first else {
@@ -173,6 +226,7 @@ final class XcodeFetcher: ObservableObject {
         let running = process
         process = nil
         running?.terminate()
+        progress = nil
         phase = .idle
         status = ""
         cleanUp()
@@ -185,6 +239,7 @@ final class XcodeFetcher: ObservableObject {
 
     private func fail(_ message: String) {
         stopTimer()
+        progress = nil
         phase = .failed
         status = message
     }

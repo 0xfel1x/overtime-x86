@@ -90,7 +90,7 @@ struct ContentView: View {
             Toggle(isOn: $model.withIDE) {
                 VStack(alignment: .leading, spacing: 2) {
                     Text("Also prepare Xcode itself")
-                    Text("Makes a private copy of your Xcode that builds with the new SDK. It takes almost no extra disk space, and your installed Xcode stays untouched.")
+                    Text("Puts a private copy of your Xcode that builds with the new SDK into the Applications folder. It takes almost no extra disk space, and your installed Xcode stays untouched.")
                         .font(.caption).foregroundStyle(.secondary)
                         .fixedSize(horizontal: false, vertical: true)
                 }
@@ -190,6 +190,9 @@ private struct FetchView: View {
                 if fetcher.phase == .failed {
                     Image(systemName: "exclamationmark.triangle.fill")
                         .font(.system(size: 26)).foregroundStyle(.orange)
+                } else if fetcher.progress != nil {
+                    Image(systemName: "shippingbox")
+                        .font(.system(size: 26)).foregroundStyle(.secondary)
                 } else {
                     ProgressView()
                 }
@@ -201,6 +204,9 @@ private struct FetchView: View {
                 Text(fetcher.status)
                     .font(.callout).foregroundStyle(.secondary)
                     .fixedSize(horizontal: false, vertical: true)
+                if let progress = fetcher.progress {
+                    ProgressView(value: progress)
+                }
                 HStack {
                     if fetcher.phase == .waiting {
                         Button("Open Download Again") { NSWorkspace.shared.open(fetcher.downloadURL) }

@@ -56,10 +56,10 @@ the Terminal.
 
 ## Using it
 
-**In Xcode:** open your projects with the prepared copy, `Xcode-SDK<version>` in
-`~/Applications`. It builds with the newer SDK and the matching Swift compiler by itself.
+**In Xcode:** open your projects with the prepared copy, `Xcode-SDK<version>` in the
+Applications folder. It builds with the newer SDK and the matching Swift compiler by itself.
 `xcodebuild` works the same way:
-`DEVELOPER_DIR=~/Applications/Xcode-SDK<version>.app/Contents/Developer xcodebuild ...`
+`DEVELOPER_DIR=/Applications/Xcode-SDK<version>.app/Contents/Developer xcodebuild ...`
 
 **In Terminal:** add the tools to your shell once (the app copies the line for you), then:
 

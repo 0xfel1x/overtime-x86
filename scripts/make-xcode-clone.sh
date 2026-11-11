@@ -18,7 +18,13 @@ ot_load
 [[ -n ${OT_SDK:-} ]] || ot_die "run scripts/make-sdk.sh first"
 [[ -d $OT_HOST_XCODE ]] || ot_die "host Xcode not found: $OT_HOST_XCODE"
 
-clone=${OT_CLONE:-$HOME/Applications/Xcode-SDK$OT_SDK_VERSION.app}
+# The copy goes next to the other apps in /Applications. Where that folder is not
+# writable for this user, or is on another volume, it goes to ~/Applications.
+apps=/Applications
+if [[ ! -w $apps || $(stat -f %d "$apps") != $(stat -f %d "$OT_HOST_XCODE") ]]; then
+    apps=$HOME/Applications
+fi
+clone=${OT_CLONE:-$apps/Xcode-SDK$OT_SDK_VERSION.app}
 if [[ -e $clone ]]; then
     ot_info "clone exists: $clone"
 else
