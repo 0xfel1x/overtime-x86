@@ -32,11 +32,15 @@ final class AppDelegate: NSObject, NSApplicationDelegate {
     func applicationShouldTerminateAfterLastWindowClosed(_ sender: NSApplication) -> Bool { true }
 
     /// Aids for developing this app, switched on by environment variables:
-    /// OVERTIME_AUTOSTART=1 starts the setup at launch; OVERTIME_SNAPSHOT=<file.png>
+    /// OVERTIME_AUTOSTART=1 starts the setup at launch, OVERTIME_AUTOFETCH=1 starts
+    /// getting the newest Xcode; OVERTIME_SNAPSHOT=<file.png>
     /// saves a picture of the window after OVERTIME_SNAPSHOT_AFTER seconds
     /// (default 2) and again when the setup ends.
     func developerAids(_ model: SetupModel) {
         let env = ProcessInfo.processInfo.environment
+        if env["OVERTIME_AUTOFETCH"] == "1" {
+            DispatchQueue.main.async { model.fetcher.start() }
+        }
         if env["OVERTIME_AUTOSTART"] == "1" {
             DispatchQueue.main.async { model.start() }
         }
@@ -72,13 +76,46 @@ final class AppDelegate: NSObject, NSApplicationDelegate {
 }
 
 /// Command-line mode with the same logic as the window:
-///   Overtime --headless [--inspect] [--no-ide] <Xcode.app> <Xcode.app>
+///   Overtime --headless [--inspect] [--no-ide] [--fetch] <Xcode.app> [<Xcode.app>]
+/// --fetch gets the newer Xcode from the Downloads folder (it prints Apple's
+/// download link instead of opening the browser).
 enum Headless {
     static func run(_ arguments: [String]) -> Never {
         let model = SetupModel()
         model.withIDE = !arguments.contains("--no-ide")
         model.add(arguments.filter { !$0.hasPrefix("--") }.map { URL(fileURLWithPath: $0) })
+        setvbuf(stdout, nil, _IOLBF, 0)
 
+        if arguments.contains("--fetch"), model.newer == nil {
+            model.fetcher.opensBrowser = false
+            var last = ""
+            let watcher = model.fetcher.objectWillChange.sink { _ in
+                DispatchQueue.main.async {
+                    let fetcher = model.fetcher
+                    if fetcher.status != last, !fetcher.status.isEmpty {
+                        last = fetcher.status
+                        print("fetch: \(last)")
+                        if fetcher.phase == .waiting { print("fetch: link \(fetcher.downloadURL.absoluteString)") }
+                    }
+                    if fetcher.phase == .failed { exit(1) }
+                    if fetcher.phase == .idle, model.newer != nil { proceed(model, arguments) }
+                }
+            }
+            fetchWatcher = watcher
+            model.fetcher.start()
+        } else {
+            proceed(model, arguments)
+        }
+        dispatchMain()
+    }
+
+    private static var fetchWatcher: Any?
+
+    private static var proceeded = false
+
+    private static func proceed(_ model: SetupModel, _ arguments: [String]) {
+        guard !proceeded else { return }
+        proceeded = true
         for (label, info) in [("runs here", model.host), ("newer", model.newer)] {
             if let info {
                 print("\(label): \(info.name), Xcode \(info.version), SDK \(info.sdkVersion), \(info.archs.joined(separator: "+")), \(info.url.path)")
@@ -100,8 +137,6 @@ enum Headless {
             }
             exit(success ? 0 : 1)
         }
-        setvbuf(stdout, nil, _IOLBF, 0)
         model.start()
-        dispatchMain()
     }
 }

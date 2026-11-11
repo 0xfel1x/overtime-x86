@@ -22,10 +22,12 @@ find "$app" -name .DS_Store -delete
 codesign --force --sign - "$app"
 ot_info "built $app"
 
-# --zip additionally packs the app for a release download.
+# --zip additionally packs the app for a release download. The archive goes to
+# releases/, away from build/, so unpacking it never collides with the built app.
 if [[ ${1:-} == --zip ]]; then
     version=$(plutil -extract CFBundleShortVersionString raw "$app/Contents/Info.plist")
-    zip="$OT_ROOT/build/Overtime-$version.zip"
+    mkdir -p "$OT_ROOT/releases"
+    zip="$OT_ROOT/releases/Overtime-$version.zip"
     rm -f -- "$zip"
     ditto -c -k --keepParent "$app" "$zip"
     ot_info "packed $zip"

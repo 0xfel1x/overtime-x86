@@ -28,6 +28,8 @@
 	<string>public.app-category.developer-tools</string>
 	<key>LSMinimumSystemVersion</key>
 	<string>13.0</string>
+	<key>NSDownloadsFolderUsageDescription</key>
+	<string>Overtime looks in your Downloads folder for the Xcode you download from Apple.</string>
 	<key>NSHighResolutionCapable</key>
 	<true/>
 	<key>NSPrincipalClass</key>

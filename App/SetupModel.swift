@@ -1,3 +1,4 @@
+import Combine
 import Foundation
 import SwiftUI
 
@@ -18,6 +19,8 @@ struct SetupResult: Equatable {
     var xcodeCopy: String?
     var xcconfig = ""
     var binFolder = ""
+    /// True when Overtime unpacked the newer Xcode itself and removed it again.
+    var unpackedXcodeRemoved = false
 }
 
 /// Runs the setup scripts one after another and publishes their progress.
@@ -40,6 +43,9 @@ final class SetupModel: ObservableObject {
 
     let home: URL
     let isAppleSilicon: Bool
+    /// Downloads and unpacks the newest Xcode on request.
+    let fetcher: XcodeFetcher
+    private var fetcherChanges: AnyCancellable?
 
     private var process: Process?
     private var cancelled = false
@@ -58,6 +64,10 @@ final class SetupModel: ObservableObject {
         var size = MemoryLayout<Int32>.size
         sysctlbyname("sysctl.proc_translated", &translated, &size, nil, 0)
         isAppleSilicon = translated == 1
+
+        fetcher = XcodeFetcher(workFolder: home.appendingPathComponent("Xcode-download"))
+        fetcher.onReady = { [weak self] url in self?.add([url]) }
+        fetcherChanges = fetcher.objectWillChange.sink { [weak self] in self?.objectWillChange.send() }
     }
 
     var isRunning: Bool { phase == .running }
@@ -74,16 +84,17 @@ final class SetupModel: ObservableObject {
     }
 
     var missing: String? {
+        if fetcher.isBusy { return "Waiting for the newer Xcode." }
         switch (host, newer) {
         case (nil, nil): return "Drop both Xcode apps anywhere in this window."
         case (nil, _): return "Still missing: the Xcode that runs on this Mac."
-        case (_, nil): return "Still missing: the newer Xcode that does not open on this Mac."
+        case (_, nil): return "Still missing: the newer Xcode. Get it with one click or drop it here."
         default: return nil
         }
     }
 
     var canStart: Bool {
-        !isRunning && !isAppleSilicon && host != nil && newer != nil && problem == nil
+        !isRunning && !fetcher.isBusy && !isAppleSilicon && host != nil && newer != nil && problem == nil
     }
 
     // MARK: Choosing the Xcodes
@@ -101,6 +112,11 @@ final class SetupModel: ObservableObject {
         guard !isRunning else { return }
         notice = nil
         for url in urls {
+            // A packed download is unpacked first and comes back through onReady.
+            if url.pathExtension.lowercased() == "xip" {
+                fetcher.unpack(url)
+                continue
+            }
             do {
                 let info = try Inspector.inspect(url)
                 if info.isOvertimeCopy {
@@ -129,6 +145,7 @@ final class SetupModel: ObservableObject {
         phase = .idle
         steps = []
         result = nil
+        if let newer, !FileManager.default.fileExists(atPath: newer.url.path) { self.newer = nil }
     }
 
     // MARK: Running
@@ -246,7 +263,15 @@ final class SetupModel: ObservableObject {
 
     private func finish(success: Bool) {
         phase = success ? .done : .failed
-        if success { result = loadResult() }
+        if success {
+            result = loadResult()
+            // The Xcode Overtime unpacked itself is only a source for the SDK copy.
+            let unpackFolder = fetcher.workFolder.resolvingSymlinksInPath().standardizedFileURL.path
+            if let newer, newer.url.path.hasPrefix(unpackFolder + "/") {
+                fetcher.cleanUp()
+                result?.unpackedXcodeRemoved = true
+            }
+        }
         onFinish?(success)
     }
 

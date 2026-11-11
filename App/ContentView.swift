@@ -10,7 +10,7 @@ struct ContentView: View {
         VStack(alignment: .leading, spacing: 16) {
             VStack(alignment: .leading, spacing: 4) {
                 Text("Overtime").font(.largeTitle.bold())
-                Text("Build with the newest macOS SDK on an Intel Mac. Drop both Xcode apps here; Overtime works out which is which.")
+                Text("Build with the newest macOS SDK on an Intel Mac. Overtime finds your Xcode and gets the newest one with one click; you can also drop Xcode apps here.")
                     .foregroundStyle(.secondary)
                     .fixedSize(horizontal: false, vertical: true)
             }
@@ -68,9 +68,15 @@ struct ContentView: View {
             SlotView(title: "Xcode that runs on this Mac",
                      placeholder: "Drop the Xcode you use today",
                      info: model.host, highlighted: dropTargeted) { choose() }
-            SlotView(title: "Newer Xcode (only its SDK is read)",
-                     placeholder: "Drop the newer Xcode that does not open on this Mac",
-                     info: model.newer, highlighted: dropTargeted) { choose() }
+            if model.fetcher.phase == .idle {
+                SlotView(title: "Newer Xcode (only its SDK is read)",
+                         placeholder: "Drop the newer Xcode, or let Overtime get it",
+                         info: model.newer, highlighted: dropTargeted,
+                         primaryTitle: model.newer == nil ? "Get Newest Xcode" : nil,
+                         primary: { model.fetcher.start() }) { choose() }
+            } else {
+                FetchView(fetcher: model.fetcher)
+            }
         }
         .disabled(model.isRunning)
 
@@ -134,6 +140,8 @@ private struct SlotView: View {
     let placeholder: String
     let info: XcodeInfo?
     let highlighted: Bool
+    var primaryTitle: String?
+    var primary: () -> Void = {}
     let choose: () -> Void
 
     var body: some View {
@@ -158,6 +166,9 @@ private struct SlotView: View {
                 }
             }
             Spacer(minLength: 8)
+            if let primaryTitle {
+                Button(primaryTitle, action: primary).buttonStyle(.borderedProminent)
+            }
             Button("Choose…", action: choose)
         }
         .padding(12)
@@ -165,6 +176,45 @@ private struct SlotView: View {
             RoundedRectangle(cornerRadius: 10)
                 .strokeBorder(highlighted ? Color.accentColor : Color.secondary.opacity(0.45),
                               style: StrokeStyle(lineWidth: 1.5, dash: info == nil ? [6, 4] : []))
+        )
+    }
+}
+
+/// Shown in place of the second slot while Overtime gets the newest Xcode.
+private struct FetchView: View {
+    @ObservedObject var fetcher: XcodeFetcher
+
+    var body: some View {
+        HStack(alignment: .top, spacing: 12) {
+            Group {
+                if fetcher.phase == .failed {
+                    Image(systemName: "exclamationmark.triangle.fill")
+                        .font(.system(size: 26)).foregroundStyle(.orange)
+                } else {
+                    ProgressView()
+                }
+            }
+            .frame(width: 44, height: 44)
+            VStack(alignment: .leading, spacing: 4) {
+                Text(fetcher.version.map { "Getting Xcode \($0)" } ?? "Getting the newest Xcode")
+                    .font(.headline)
+                Text(fetcher.status)
+                    .font(.callout).foregroundStyle(.secondary)
+                    .fixedSize(horizontal: false, vertical: true)
+                HStack {
+                    if fetcher.phase == .waiting {
+                        Button("Open Download Again") { NSWorkspace.shared.open(fetcher.downloadURL) }
+                        Button("All Xcode Downloads") { NSWorkspace.shared.open(XcodeFetcher.downloadPage) }
+                    }
+                    Button(fetcher.phase == .failed ? "OK" : "Cancel") { fetcher.cancel() }
+                }
+                .controlSize(.small)
+            }
+            Spacer(minLength: 0)
+        }
+        .padding(12)
+        .background(
+            RoundedRectangle(cornerRadius: 10).strokeBorder(Color.accentColor.opacity(0.7), lineWidth: 1.5)
         )
     }
 }
@@ -228,7 +278,9 @@ private struct ResultView: View {
                     Button("Copy PATH Line") { copy("export PATH=\"\(result.binFolder):$PATH\"") }
                     Button("Show in Finder") { reveal(result.binFolder) }
                 }
-                Text("The newer Xcode is no longer needed and can be moved to the Trash. Keep it only if you want to run this setup again.")
+                Text(result.unpackedXcodeRemoved
+                     ? "Overtime removed the unpacked newer Xcode again. The downloaded .xip file in your Downloads folder can be deleted too."
+                     : "The newer Xcode is no longer needed and can be moved to the Trash. Keep it only if you want to run this setup again.")
                     .font(.caption).foregroundStyle(.secondary)
                     .fixedSize(horizontal: false, vertical: true)
             }
