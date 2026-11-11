@@ -1,0 +1,6 @@
+#!/bin/zsh
+# Host Xcode's clang (C / Objective-C) against the local SDK copy.
+source "${0:A:h}/../lib/common.sh"; ot_load
+[[ -n ${OT_SDK:-} ]] || ot_die "run scripts/setup.sh first"
+export DEVELOPER_DIR="$OT_HOST_XCODE/Contents/Developer"
+exec /usr/bin/xcrun clang -isysroot "$OT_SDK" "$@"

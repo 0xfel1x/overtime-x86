@@ -1,0 +1,46 @@
+# Legal notes
+
+This is not legal advice. If you need certainty for your situation, ask a lawyer.
+
+## What this repository contains
+
+Only original scripts, an example project written from scratch and documentation, under
+the MIT license. It contains **no** Apple software, no SDK files, no `.tbd` stubs, no
+Swift interfaces, no Xcode components, no Apple artwork and no Apple logos. It does not
+download Apple software from anywhere; the only download is the open-source Swift
+toolchain from swift.org (Apache License 2.0 with Runtime Library Exception), verified
+against the swift.org Developer ID signature.
+
+## Your responsibilities as a user
+
+- **Obtain Xcode yourself from Apple** and accept Apple's license agreements
+  (Xcode and Apple SDKs Agreement, macOS Software License Agreement). The scripts only
+  operate on copies you already have on your own Mac.
+- **Use Apple hardware.** Apple's licenses limit use of macOS, Xcode and the SDKs to
+  Apple-branded computers. Overtime is meant for Intel-based Macs. Do not use it on
+  non-Apple hardware.
+- **Keep generated files private.** The SDK copy (`~/Library/Developer/Overtime`), the
+  generated `config/local.xcconfig` and the optional Xcode clone stay on your Mac. Never
+  commit, upload, share or redistribute them. `.gitignore` excludes them from this
+  repository.
+- **Local modification.** The scripts change a local copy of the SDK (renaming one
+  architecture token in text-based link stubs) and add a symlink inside a local Xcode
+  clone. Whether that is permitted is governed by Apple's license agreement, which you
+  should review yourself. The scripts never touch your installed Xcode.
+- **Distributing your apps** built with this setup is subject to Apple's normal rules
+  (for example App Store requirements). Nothing here changes them.
+
+## For contributors
+
+- Never commit files copied or derived from Xcode, the SDKs or macOS: headers, `.tbd`,
+  `.swiftinterface`, binaries, plists, screenshots of Apple UI or icons.
+- Describe Apple formats in your own words; do not paste Apple header or interface text.
+- Use Apple, Xcode, macOS, Swift and Intel only as plain words to describe compatibility.
+  No logos, no names that suggest an official product, no "Xcode" or "Apple" in the
+  project name.
+
+## Trademarks
+
+Apple, Xcode, macOS, Swift and Apple silicon are trademarks of Apple Inc., registered in
+the U.S. and other countries. Intel is a trademark of Intel Corporation. This project is
+not affiliated with, endorsed or sponsored by either company.

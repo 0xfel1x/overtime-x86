@@ -1,0 +1,7 @@
+#!/bin/zsh
+# swiftc from the matching swift.org toolchain, against the local SDK copy.
+source "${0:A:h}/../lib/common.sh"; ot_load
+[[ -n ${OT_SDK:-} && -n ${OT_TOOLCHAIN:-} ]] || ot_die "run scripts/setup.sh first"
+export DEVELOPER_DIR="$OT_HOST_XCODE/Contents/Developer" SDKROOT="$OT_SDK"
+# -isysroot for the link driver: otherwise the binary records "sdk 13.0" instead of the real SDK version.
+exec "$OT_TOOLCHAIN/usr/bin/swiftc" -sdk "$OT_SDK" -Xclang-linker -isysroot -Xclang-linker "$OT_SDK" "$@"

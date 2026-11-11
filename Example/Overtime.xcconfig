@@ -1,0 +1,3 @@
+// Committed project config. Machine-specific values come from the generated,
+// git-ignored file (scripts/make-xcconfig.sh).
+#include "../config/local.xcconfig"

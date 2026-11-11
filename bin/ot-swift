@@ -1,0 +1,12 @@
+#!/bin/zsh
+# swift / Swift Package Manager from the matching swift.org toolchain, against the local SDK copy.
+source "${0:A:h}/../lib/common.sh"; ot_load
+[[ -n ${OT_SDK:-} && -n ${OT_TOOLCHAIN:-} ]] || ot_die "run scripts/setup.sh first"
+export DEVELOPER_DIR="$OT_HOST_XCODE/Contents/Developer" SDKROOT="$OT_SDK"
+swift=$OT_TOOLCHAIN/usr/bin/swift
+case ${1:-} in
+  build|run|test)
+    sub=$1; shift
+    exec "$swift" "$sub" -Xswiftc -Xclang-linker -Xswiftc -isysroot -Xswiftc -Xclang-linker -Xswiftc "$OT_SDK" "$@" ;;
+  *) exec "$swift" "$@" ;;
+esac

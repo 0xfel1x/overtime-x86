@@ -1,0 +1,15 @@
+# Never commit Apple-derived or machine-specific files (see LEGAL.md).
+config/local.xcconfig
+*.sdk
+*.xctoolchain
+*.pkg
+*.tbd
+*.swiftinterface
+# Private notes for this machine
+HANDOFF.md
+# Build output
+.build/
+build/
+DerivedData/
+xcuserdata/
+.DS_Store

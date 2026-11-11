@@ -1,0 +1,38 @@
+#!/bin/zsh
+# Optional step 4: a private, local Xcode IDE setup that can build against the
+# newer SDK.
+#
+# The Xcode build system only resolves SDKs that sit in its own platform folder.
+# Instead of modifying the user's installed Xcode, this makes an APFS clone of it
+# on the same disk (almost no extra space) and adds one symlink to the local SDK
+# copy inside the clone.
+#
+# Legal boundaries (see LEGAL.md):
+#   * Works only with an Xcode the user installed themselves under Apple's license.
+#   * The clone stays on this Mac. Never upload, share or redistribute it.
+#   * Nothing from Xcode is contained in this repository.
+set -euo pipefail
+source "${0:A:h}/../lib/common.sh"
+ot_require_intel
+ot_load
+[[ -n ${OT_SDK:-} ]] || ot_die "run scripts/make-sdk.sh first"
+[[ -d $OT_HOST_XCODE ]] || ot_die "host Xcode not found: $OT_HOST_XCODE"
+
+clone=${OT_CLONE:-$HOME/Applications/Xcode-SDK$OT_SDK_VERSION.app}
+if [[ -e $clone ]]; then
+    ot_info "clone exists: $clone"
+else
+    mkdir -p "${clone:h}"
+    [[ $(stat -f %d "$OT_HOST_XCODE") == $(stat -f %d "${clone:h}") ]] \
+        || ot_die "clone target must be on the same APFS volume as $OT_HOST_XCODE"
+    ot_info "cloning $OT_HOST_XCODE -> $clone (APFS clone, takes a few minutes)"
+    cp -Rc -- "$OT_HOST_XCODE" "$clone.partial"
+    mv -- "$clone.partial" "$clone"
+fi
+
+sdks="$clone/Contents/Developer/Platforms/MacOSX.platform/Developer/SDKs"
+ln -sfn -- "$OT_SDK" "$sdks/MacOSX$OT_SDK_VERSION.sdk"
+DEVELOPER_DIR="$clone/Contents/Developer" xcodebuild -showsdks 2>/dev/null | grep -q "$OT_SDK_CANONICAL" \
+    || ot_die "the clone does not list $OT_SDK_CANONICAL"
+print "OT_XCODE_CLONE=$clone" > "$OT_HOME/clone.env"
+ot_info "ready: open projects with $clone"
