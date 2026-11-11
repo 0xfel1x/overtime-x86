@@ -31,7 +31,7 @@ then unpacks the downloaded file with the `xip` tool that is part of macOS.
   repository.
 - **Local modification.** The scripts change a local copy of the SDK (renaming one
   architecture token in text-based link stubs and adding one entry to its settings file),
-  add a symlink inside a local Xcode clone, and add one entry to your own Xcode
+  add a symlink inside a local Xcode clone and change the version text it displays, and add one entry to your own Xcode
   preferences. Whether that is permitted is governed by Apple's license agreement, which you
   should review yourself. The scripts never touch your installed Xcode.
 - **Distributing your apps** built with this setup is subject to Apple's normal rules

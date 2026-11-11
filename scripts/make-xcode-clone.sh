@@ -42,6 +42,13 @@ ln -sfn -- "$OT_SDK" "$sdks/MacOSX$OT_SDK_VERSION.sdk"
 DEVELOPER_DIR="$clone/Contents/Developer" xcodebuild -showsdks 2>/dev/null | grep -q "$OT_SDK_CANONICAL" \
     || ot_die "the clone does not list $OT_SDK_CANONICAL"
 
+# Make the copy recognisable: About Xcode, the welcome window and
+# `xcodebuild -version` then show for example "26.3 + SDK 27.2". Only the display
+# string in the copy's Info.plist changes; the version recorded in built apps
+# (DTXcode) comes from another file and stays as it is.
+shown=$(plutil -extract CFBundleShortVersionString raw "$OT_HOST_XCODE/Contents/Info.plist")
+plutil -replace CFBundleShortVersionString -string "$shown + SDK $OT_SDK_VERSION" "$clone/Contents/Info.plist"
+
 # Xcode shows its platform chooser once for every SDK build it has not presented
 # yet and opens no project until it is dismissed. Mark the linked SDK as presented
 # in the user's own Xcode preferences so the clone opens projects straight away.
