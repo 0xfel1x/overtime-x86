@@ -6,7 +6,7 @@
 
 <p align="center">
   <em>Extra time for Intel Macs.</em><br>
-  Build with the newest macOS SDK on an Intel Mac, after the newest developer tools stopped running there.
+  Build with the newest macOS SDK on an x64_x86 Mac, after the newest developer tools stopped running there.
 </p>
 
 <p align="center">
