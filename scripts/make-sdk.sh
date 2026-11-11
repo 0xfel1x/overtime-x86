@@ -12,6 +12,11 @@ set -euo pipefail
 source "${0:A:h}/../lib/common.sh"
 ot_require_intel
 
+[[ -d $OT_HOST_XCODE/Contents/Developer ]] || ot_die "host Xcode not found: $OT_HOST_XCODE (set OT_HOST_XCODE)"
+export DEVELOPER_DIR="$OT_HOST_XCODE/Contents/Developer"
+xcodebuild -checkFirstLaunchStatus >/dev/null 2>&1 \
+    || ot_die "open ${OT_HOST_XCODE:t} once and let it finish its first-launch setup, then try again"
+
 src_link="$OT_NEW_XCODE/Contents/Developer/Platforms/MacOSX.platform/Developer/SDKs/MacOSX.sdk"
 [[ -d $src_link ]] || ot_die "no macOS SDK in $OT_NEW_XCODE (set OT_NEW_XCODE)"
 src=${src_link:A}
@@ -39,8 +44,7 @@ ot_info "patching ${#files} .tbd files (arm64e.x1 -> i386)"
 # Smoke test with the host Xcode's linker.
 probe=$(mktemp -d)
 print 'int main(void){return 0;}' > "$probe/p.c"
-DEVELOPER_DIR="$OT_HOST_XCODE/Contents/Developer" \
-    xcrun clang -isysroot "$work" -target x86_64-apple-macos13 "$probe/p.c" -o "$probe/p"
+xcrun clang -isysroot "$work" -target x86_64-apple-macos13 "$probe/p.c" -o "$probe/p"
 "$probe/p"
 rm -rf -- "$probe"
 
@@ -54,4 +58,6 @@ OT_SDK_VERSION=$version
 OT_SDK_CANONICAL=$canonical
 OT_SWIFT_VERSION=$swift_version
 EOF
+print -r -- "OT_SAVED_HOST_XCODE=${(qq)OT_HOST_XCODE}" > "$OT_HOME/xcode.env"
+print -r -- "OT_SAVED_NEW_XCODE=${(qq)OT_NEW_XCODE}" >> "$OT_HOME/xcode.env"
 ot_info "ready: $dest (needs Swift $swift_version)"

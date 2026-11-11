@@ -8,6 +8,7 @@ set -euo pipefail
 source "${0:A:h}/../lib/common.sh"
 ot_require_intel
 ot_load
+export DEVELOPER_DIR="$OT_HOST_XCODE/Contents/Developer"
 
 version=${1:-${OT_SWIFT_VERSION:-}}
 [[ -n $version ]] || ot_die "run scripts/make-sdk.sh first or pass a Swift version"
@@ -15,6 +16,9 @@ name="swift-$version-RELEASE"
 dest="$OT_TOOLCHAINS_DIR/$name.xctoolchain"
 
 if [[ ! -x $dest/usr/bin/swiftc ]]; then
+    mkdir -p "$OT_TOOLCHAINS_DIR"
+    free_gb=$(( $(df -k "$OT_TOOLCHAINS_DIR" | awk 'NR==2 {print $4}') / 1048576 ))
+    (( free_gb >= 8 )) || ot_die "not enough free disk space: the Swift toolchain needs about 8 GB, $free_gb GB are free"
     url="https://download.swift.org/swift-$version-release/xcode/$name/$name-osx.pkg"
     tmp=$(mktemp -d)
     trap 'rm -rf -- "$tmp"' EXIT
@@ -28,7 +32,6 @@ if [[ ! -x $dest/usr/bin/swiftc ]]; then
     pkgutil --expand-full "$tmp/$name.pkg" "$tmp/x"
     payload=$(print -l "$tmp"/x/*.pkg/Payload(N) | head -1)
     [[ -x $payload/usr/bin/swiftc ]] || ot_die "unexpected package layout"
-    mkdir -p "$OT_TOOLCHAINS_DIR"
     mv -- "$payload" "$dest"
 fi
 
@@ -39,4 +42,13 @@ cat > "$OT_HOME/toolchain.env" <<EOF
 OT_TOOLCHAIN=$dest
 OT_TOOLCHAIN_ID=$id
 EOF
+
+# Record in the SDK copy which toolchain belongs to it. The Xcode build system
+# reads this key and then picks the matching Swift compiler for every project
+# built against the SDK, without any project setting.
+if [[ -n ${OT_SDK:-} && -d $OT_SDK ]]; then
+    for settings in "$OT_SDK"/SDKSettings.{json,plist}(N); do
+        plutil -replace Toolchains -json "[\"$id\"]" "$settings"
+    done
+fi
 ot_info "toolchain $name ($id, $archs) ready"

@@ -1,0 +1,22 @@
+#!/bin/zsh
+# Builds build/Overtime.app, the drag-and-drop front end for the setup scripts.
+#
+# It is compiled from App/ with the Xcode that runs on this Mac and carries a copy
+# of lib/, scripts/ and bin/ from this repository. Like the repository, the app
+# contains no Apple software. It is signed ad hoc, for use on the Mac it was built on.
+set -euo pipefail
+source "${0:A:h}/../lib/common.sh"
+[[ -d $OT_HOST_XCODE/Contents/Developer ]] && export DEVELOPER_DIR="$OT_HOST_XCODE/Contents/Developer"
+
+app="$OT_ROOT/build/Overtime.app"
+rm -rf -- "$app"
+mkdir -p "$app/Contents/MacOS" "$app/Contents/Resources/overtime"
+
+xcrun swiftc -O -swift-version 5 -parse-as-library -target x86_64-apple-macos13.0 \
+    "$OT_ROOT"/App/*.swift -o "$app/Contents/MacOS/Overtime"
+cp "$OT_ROOT/App/Info.plist" "$app/Contents/Info.plist"
+cp -R "$OT_ROOT/lib" "$OT_ROOT/scripts" "$OT_ROOT/bin" "$app/Contents/Resources/overtime/"
+rm -f -- "$app/Contents/Resources/overtime/scripts/build-app.sh"
+find "$app" -name .DS_Store -delete
+codesign --force --sign - "$app"
+ot_info "built $app"

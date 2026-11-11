@@ -1,5 +1,6 @@
 #!/bin/zsh
 # Runs the required steps in order. The Xcode IDE clone is opt-in: --with-ide.
+# build/Overtime.app (scripts/build-app.sh) does the same from a window.
 set -euo pipefail
 here=${0:A:h}
 "$here/make-sdk.sh"

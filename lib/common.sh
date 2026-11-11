@@ -5,10 +5,13 @@
 OT_ROOT=${OT_ROOT:-${${(%):-%x}:A:h:h}}
 # Generated local state (SDK copy, *.env files). Never part of the repository.
 OT_HOME=${OT_HOME:-$HOME/Library/Developer/Overtime}
+# Xcode paths chosen during the last setup; used as defaults so the wrappers keep
+# working when the Xcodes are not in the standard places. The environment wins.
+[[ -f $OT_HOME/xcode.env ]] && source "$OT_HOME/xcode.env"
 # Xcode that runs on this Intel Mac. Provides ld, codesign, actool, ibtool.
-OT_HOST_XCODE=${OT_HOST_XCODE:-/Applications/Xcode.app}
+OT_HOST_XCODE=${OT_HOST_XCODE:-${OT_SAVED_HOST_XCODE:-/Applications/Xcode.app}}
 # Newer, Apple-silicon-only Xcode. Only its SDK (headers, .tbd, .swiftinterface) is used.
-OT_NEW_XCODE=${OT_NEW_XCODE:-/Applications/Xcode-27.app}
+OT_NEW_XCODE=${OT_NEW_XCODE:-${OT_SAVED_NEW_XCODE:-/Applications/Xcode-27.app}}
 OT_TOOLCHAINS_DIR=${OT_TOOLCHAINS_DIR:-$HOME/Library/Developer/Toolchains}
 # Developer ID team of the official swift.org installer packages.
 OT_SWIFT_TEAM_ID=V9AUD2URP3

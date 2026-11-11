@@ -26,6 +26,7 @@ else
     [[ $(stat -f %d "$OT_HOST_XCODE") == $(stat -f %d "${clone:h}") ]] \
         || ot_die "clone target must be on the same APFS volume as $OT_HOST_XCODE"
     ot_info "cloning $OT_HOST_XCODE -> $clone (APFS clone, takes a few minutes)"
+    rm -rf -- "$clone.partial"
     cp -Rc -- "$OT_HOST_XCODE" "$clone.partial"
     mv -- "$clone.partial" "$clone"
 fi
@@ -34,5 +35,15 @@ sdks="$clone/Contents/Developer/Platforms/MacOSX.platform/Developer/SDKs"
 ln -sfn -- "$OT_SDK" "$sdks/MacOSX$OT_SDK_VERSION.sdk"
 DEVELOPER_DIR="$clone/Contents/Developer" xcodebuild -showsdks 2>/dev/null | grep -q "$OT_SDK_CANONICAL" \
     || ot_die "the clone does not list $OT_SDK_CANONICAL"
-print "OT_XCODE_CLONE=$clone" > "$OT_HOME/clone.env"
+
+# Xcode shows its platform chooser once for every SDK build it has not presented
+# yet and opens no project until it is dismissed. Mark the linked SDK as presented
+# in the user's own Xcode preferences so the clone opens projects straight away.
+build=$(plutil -extract ProductBuildVersion raw "$OT_SDK/System/Library/CoreServices/SystemVersion.plist" 2>/dev/null || true)
+key=IDEPlatformsFirstLaunchPresentedSDKVersions-macosx
+if [[ -n $build ]] && seen=$(defaults read com.apple.dt.Xcode $key 2>/dev/null) && [[ $seen != *$build* ]]; then
+    defaults write com.apple.dt.Xcode $key -array-add "$build"
+fi
+
+print -r -- "OT_XCODE_CLONE=${(qq)clone}" > "$OT_HOME/clone.env"
 ot_info "ready: open projects with $clone"
