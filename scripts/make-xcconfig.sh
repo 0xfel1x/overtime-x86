@@ -1,6 +1,6 @@
 #!/bin/zsh
 # Step 3: write config/local.xcconfig (git-ignored) for Xcode projects.
-# Projects include it through a committed xcconfig such as Example/Overtime.xcconfig.
+# Projects include it through an xcconfig of their own: #include "<path>/config/local.xcconfig"
 set -euo pipefail
 source "${0:A:h}/../lib/common.sh"
 ot_load

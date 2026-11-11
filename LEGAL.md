@@ -4,8 +4,8 @@ This is not legal advice. If you need certainty for your situation, ask a lawyer
 
 ## What this repository contains
 
-Only original scripts, a small setup app and an example project written from scratch,
-and documentation, under the MIT license. It contains **no** Apple software, no SDK files, no `.tbd` stubs, no
+Only original scripts, a small setup app written from scratch and documentation, under
+the MIT license. It contains **no** Apple software, no SDK files, no `.tbd` stubs, no
 Swift interfaces, no Xcode components, no Apple artwork and no Apple logos. It does not
 download Apple software from anywhere; the only download is the open-source Swift
 toolchain from swift.org (Apache License 2.0 with Runtime Library Exception), verified

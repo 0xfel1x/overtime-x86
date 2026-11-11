@@ -3,13 +3,46 @@ config/local.xcconfig
 *.sdk
 *.xctoolchain
 *.pkg
+*.xip
 *.tbd
 *.swiftinterface
+*.env
+*.partial
+
 # Private notes for this machine
 HANDOFF.md
+
 # Build output
 .build/
 build/
 DerivedData/
+*.app
+*.dSYM
+*.o
+*.swiftmodule
+*.swiftdoc
+*.log
+
+# Xcode per-user state
 xcuserdata/
+*.xcuserstate
+*.xcworkspace/
+*.xcscmblueprint
+Package.resolved
+
+# App snapshots made with OVERTIME_SNAPSHOT (they show Apple icons)
+*.png
+*.jpg
+
+# macOS, editors and tools
 .DS_Store
+.AppleDouble
+._*
+*.swp
+*~
+.vscode/
+.idea/
+.claude/
+
+# Local example project, not part of the repository
+Example/

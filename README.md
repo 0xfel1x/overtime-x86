@@ -69,8 +69,9 @@ folder, so the clone gets one symlink there and your installed Xcode stays untou
 `xcodebuild` works the same way: `DEVELOPER_DIR=<clone>/Contents/Developer xcodebuild ...`.
 
 To pin SDK, compiler and architecture for one project regardless of the defaults, use the
-generated configuration as its base configuration (see
-[Example/Overtime.xcconfig](Example/Overtime.xcconfig)).
+generated configuration as its base configuration: add an `.xcconfig` file to the project
+that contains `#include "<path to>/config/local.xcconfig"` and select it under
+Project > Info > Configurations.
 
 **In Terminal:**
 
