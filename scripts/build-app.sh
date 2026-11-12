@@ -12,7 +12,10 @@ app="$OT_ROOT/build/Overtime.app"
 rm -rf -- "$app"
 mkdir -p "$app/Contents/MacOS" "$app/Contents/Resources/overtime"
 
-xcrun swiftc -O -swift-version 5 -parse-as-library -target x86_64-apple-macos13.0 \
+# Build with the SDK that belongs to this Xcode's own compiler. In an Xcode that
+# Overtime prepared, the default SDK is the newer one, which that compiler cannot read.
+sdk="${DEVELOPER_DIR:-$(xcode-select -p)}/Platforms/MacOSX.platform/Developer/SDKs/MacOSX.sdk"
+xcrun swiftc -O -swift-version 5 -parse-as-library -target x86_64-apple-macos13.0 -sdk "$sdk" \
     "$OT_ROOT"/App/*.swift -o "$app/Contents/MacOS/Overtime"
 cp "$OT_ROOT/App/Info.plist" "$app/Contents/Info.plist"
 cp "$OT_ROOT/App/Overtime.icns" "$app/Contents/Resources/Overtime.icns"
