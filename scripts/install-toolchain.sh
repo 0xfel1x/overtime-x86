@@ -57,12 +57,22 @@ OT_TOOLCHAIN=$dest
 OT_TOOLCHAIN_ID=$id
 EOF
 
-# Record in the SDK copy which toolchain belongs to it. The Xcode build system
-# reads this key and then picks the matching Swift compiler for every project
-# built against the SDK, without any project setting.
-if [[ -n ${OT_SDK:-} && -d $OT_SDK ]]; then
-    for settings in "$OT_SDK"/SDKSettings.{json,plist}(N); do
+# Record in each SDK copy with Swift which toolchain belongs to it. The Xcode build
+# system reads this key and then picks the matching Swift compiler for every project
+# built against the SDK, without any project setting. (DriverKit has no Swift and
+# keeps the older Xcode's own compiler.)
+#
+# Apple's Swift compiler loads cross-import overlays (PhotosPicker from PhotosUI with
+# SwiftUI, @Query from SwiftData with SwiftUI, ...) by default; the swift.org one
+# only when asked. SWIFT_TOOLCHAIN_FLAGS is a hidden Xcode build setting meant for
+# such toolchain flags, so as a default of the SDK it reaches every project.
+flags='$(inherited) -Xfrontend -enable-cross-import-overlays'
+for p in ${=OT_PLATFORMS:-MacOSX}; do
+    sdk="$OT_HOME/$p.sdk"
+    [[ -d $sdk/usr/lib/swift ]] || continue
+    for settings in "$sdk"/SDKSettings.{json,plist}(N); do
         plutil -replace Toolchains -json "[\"$id\"]" "$settings"
+        plutil -replace DefaultProperties.SWIFT_TOOLCHAIN_FLAGS -string "$flags" "$settings"
     done
-fi
+done
 ot_info "toolchain $name ($id, $archs) ready"

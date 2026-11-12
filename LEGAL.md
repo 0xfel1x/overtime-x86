@@ -26,14 +26,18 @@ then unpacks the downloaded file with the `xip` tool that is part of macOS.
   Apple-branded computers. Overtime is meant for Intel-based Macs. Do not use it on
   non-Apple hardware.
 - **Keep generated files private.** The SDK copy (`~/Library/Developer/Overtime`), the
-  generated `config/local.xcconfig` and the optional Xcode clone stay on your Mac. Never
+  generated `config/local.xcconfig` and your patched Xcode stay on your Mac. Never
   commit, upload, share or redistribute them. `.gitignore` excludes them from this
   repository.
-- **Local modification.** The scripts change a local copy of the SDK (renaming one
-  architecture token in text-based link stubs and adding one entry to its settings file),
-  add a symlink inside a local Xcode clone and change the name it displays, and add one entry to your own Xcode
-  preferences. Whether that is permitted is governed by Apple's license agreement, which you
-  should review yourself. The scripts never touch your installed Xcode.
+- **Local modification.** The scripts change local copies of the SDKs (renaming one
+  architecture token in text-based link stubs, removing the `State` macro declarations from
+  SwiftUI's Swift interfaces, adding one accepted member name to three App Intents macro
+  declarations and adding entries to their settings files),
+  add symlinks inside your installed Xcode and change the name it displays, pair the
+  newer iOS and tvOS SDKs with your installed simulator runtimes in your own simulator
+  settings (switching Overtime off undoes these three), and add entries to your own Xcode
+  preferences. Whether that
+  is permitted is governed by Apple's license agreement, which you should review yourself.
 - **Distributing your apps** built with this setup is subject to Apple's normal rules
   (for example App Store requirements). Nothing here changes them.
 

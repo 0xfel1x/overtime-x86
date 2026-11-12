@@ -15,8 +15,13 @@ struct SetupStep: Identifiable {
 struct SetupResult: Equatable {
     var sdkVersion = ""
     var swiftVersion = ""
+    /// Platforms with an SDK copy, as shown to the user (macOS, iOS, tvOS, DriverKit).
+    var platforms: [String] = []
     var toolchainName = ""
-    var xcodeCopy: String?
+    /// The Xcode Overtime changed to build with the new SDK.
+    var preparedXcode: String?
+    /// A separate Xcode copy made by a version before 3.0, no longer needed.
+    var unusedCopy: String?
     var xcconfig = ""
     var binFolder = ""
     /// True when Overtime unpacked the newer Xcode itself and removed it again.
@@ -31,13 +36,14 @@ final class SetupModel: ObservableObject {
     @Published var host: XcodeInfo?
     @Published var newer: XcodeInfo?
     @Published var notice: String?
-    @Published var withIDE = true
     @Published var steps: [SetupStep] = []
     @Published var phase: Phase = .idle
     @Published var log = ""
     @Published var result: SetupResult?
     /// The Xcode prepared earlier, and whether the newer SDK is switched on in it.
     @Published var prepared: (name: String, sdkVersion: String, active: Bool)?
+    /// Why the last attempt to switch failed.
+    @Published var switchError: String?
 
     /// Called with every finished output line (used by the command-line mode).
     var onLine: ((String) -> Void)?
@@ -132,7 +138,8 @@ final class SetupModel: ObservableObject {
 
     private func readEnv() -> [String: String] {
         var values: [String: String] = [:]
-        for file in ["sdk.env", "toolchain.env", "clone.env"] {
+        // clone.env: the separate Xcode copy made by versions before 3.0.
+        for file in ["sdk.env", "toolchain.env", "clone.env", "patch.env"] {
             let text = (try? String(contentsOf: home.appendingPathComponent(file), encoding: .utf8)) ?? ""
             for line in text.split(separator: "\n") {
                 guard let eq = line.firstIndex(of: "=") else { continue }
@@ -144,29 +151,51 @@ final class SetupModel: ObservableObject {
         return values
     }
 
+    private static func preparedXcode(in env: [String: String]) -> String? {
+        env["OT_PATCHED_XCODE"] ?? env["OT_XCODE_CLONE"]
+    }
+
     func refreshPrepared() {
         let env = readEnv()
-        guard let copy = env["OT_XCODE_CLONE"], let sdk = env["OT_SDK"], let version = env["OT_SDK_VERSION"],
-              FileManager.default.fileExists(atPath: copy) else {
+        guard let xcode = Self.preparedXcode(in: env), let sdk = env["OT_SDK"], let version = env["OT_SDK_VERSION"],
+              FileManager.default.fileExists(atPath: xcode) else {
             prepared = nil
             return
         }
-        let link = "\(copy)/Contents/Developer/Platforms/MacOSX.platform/Developer/SDKs/MacOSX\(version).sdk"
+        let link = "\(xcode)/Contents/Developer/Platforms/MacOSX.platform/Developer/SDKs/MacOSX\(version).sdk"
         let active = (try? FileManager.default.destinationOfSymbolicLink(atPath: link)) == sdk
-        prepared = (URL(fileURLWithPath: copy).deletingPathExtension().lastPathComponent, version, active)
+        prepared = (URL(fileURLWithPath: xcode).deletingPathExtension().lastPathComponent, version, active)
     }
 
-    /// Adds or removes the link to the SDK copy; the same as scripts/sdk-switch.sh.
+    /// Switches the SDK link and the name of the prepared Xcode with
+    /// scripts/sdk-switch.sh, taken from this app so it is always the current one.
     func setSDK(active: Bool) {
-        let env = readEnv()
-        guard let copy = env["OT_XCODE_CLONE"], let sdk = env["OT_SDK"], let version = env["OT_SDK_VERSION"] else { return }
-        let link = "\(copy)/Contents/Developer/Platforms/MacOSX.platform/Developer/SDKs/MacOSX\(version).sdk"
-        let fm = FileManager.default
+        switchError = nil
+        let bundled = Bundle.main.resourceURL?.appendingPathComponent("overtime/scripts/sdk-switch.sh")
+        let script = bundled.flatMap { FileManager.default.fileExists(atPath: $0.path) ? $0 : nil }
+            ?? home.appendingPathComponent("scripts/sdk-switch.sh")
+        let task = Process()
+        task.executableURL = URL(fileURLWithPath: "/bin/zsh")
+        task.arguments = [script.path, active ? "on" : "off"]
+        var env = ProcessInfo.processInfo.environment
+        env["PATH"] = "/usr/bin:/bin:/usr/sbin:/sbin"
+        env["OT_HOME"] = home.path
+        env.removeValue(forKey: "OT_ROOT")
+        task.environment = env
+        let pipe = Pipe()
+        task.standardOutput = pipe
+        task.standardError = pipe
+        task.standardInput = FileHandle.nullDevice
         do {
-            if (try? fm.destinationOfSymbolicLink(atPath: link)) != nil { try fm.removeItem(atPath: link) }
-            if active { try fm.createSymbolicLink(atPath: link, withDestinationPath: sdk) }
+            try task.run()
+            let output = String(decoding: pipe.fileHandleForReading.readDataToEndOfFile(), as: UTF8.self)
+            task.waitUntilExit()
+            if task.terminationStatus != 0 {
+                let reason = output.split(separator: "\n").last.map(String.init) ?? ""
+                switchError = "Could not switch: " + reason.replacingOccurrences(of: "overtime: ", with: "")
+            }
         } catch {
-            notice = "Could not switch the SDK: \(error.localizedDescription)"
+            switchError = "Could not switch: \(error.localizedDescription)"
         }
         refreshPrepared()
     }
@@ -176,9 +205,10 @@ final class SetupModel: ObservableObject {
     func autodetect() {
         refreshPrepared()
         let found = Inspector.findInstalled()
-        // Prefer an untouched Xcode; fall back to a copy Overtime prepared earlier.
+        // Prefer an untouched Xcode; fall back to one Overtime prepared earlier.
+        // A separate copy left by a version before 3.0 then stays unused.
         let intel = found.filter(\.runsOnIntel)
-        host = (intel.filter { !$0.isOvertimeCopy }.isEmpty ? intel : intel.filter { !$0.isOvertimeCopy })
+        host = (intel.filter { !$0.isPrepared }.isEmpty ? intel : intel.filter { !$0.isPrepared })
             .max { Inspector.isNewer($1.version, than: $0.version) }
         newer = found.filter { !$0.runsOnIntel }
             .max { Inspector.isNewer($1.sdkVersion, than: $0.sdkVersion) }
@@ -202,10 +232,9 @@ final class SetupModel: ObservableObject {
                 if info.runsOnIntel, info.url.path.hasPrefix(unpackFolder + "/") {
                     info = try Inspector.inspect(try install(info))
                 }
-                if info.isOvertimeCopy, info.runsOnIntel {
-                    // No untouched Xcode needed: a copy prepared earlier is updated in place.
+                if info.isPrepared, info.runsOnIntel {
                     host = info
-                    notice = "“\(info.name)” was prepared by Overtime before. It will be updated in place."
+                    notice = "“\(info.name)” was prepared by Overtime before. It will be updated."
                 } else if info.runsOnIntel {
                     if let old = host, old.url != info.url, newer == nil {
                         notice = "\(info.name) runs on this Mac, so it replaced \(old.name). The second place is for the newer Xcode that does not open on this Mac."
@@ -256,13 +285,11 @@ final class SetupModel: ObservableObject {
         result = nil
         notice = nil
         steps = [
-            SetupStep(id: "sdk", title: "Copy the macOS SDK", script: "make-sdk.sh"),
+            SetupStep(id: "sdk", title: "Copy the SDKs", script: "make-sdk.sh"),
             SetupStep(id: "toolchain", title: "Install the matching Swift compiler", script: "install-toolchain.sh"),
             SetupStep(id: "config", title: "Write the project settings", script: "make-xcconfig.sh"),
+            SetupStep(id: "ide", title: "Prepare Xcode for the new SDK", script: "patch-xcode.sh"),
         ]
-        if withIDE {
-            steps.append(SetupStep(id: "ide", title: "Prepare Xcode for the new SDK", script: "make-xcode-clone.sh"))
-        }
         phase = .running
         do {
             try installTools()
@@ -314,7 +341,6 @@ final class SetupModel: ObservableObject {
         env["OT_HOME"] = home.path
         env["OT_HOST_XCODE"] = host.url.path
         env["OT_NEW_XCODE"] = newer.url.path
-        if host.isOvertimeCopy { env["OT_CLONE"] = host.url.path }
         env.removeValue(forKey: "OT_ROOT")
         task.environment = env
         let pipe = Pipe()
@@ -427,27 +453,18 @@ final class SetupModel: ObservableObject {
     // MARK: Result
 
     private func loadResult() -> SetupResult {
-        var values: [String: String] = [:]
-        for file in ["sdk.env", "toolchain.env", "clone.env"] {
-            let text = (try? String(contentsOf: home.appendingPathComponent(file), encoding: .utf8)) ?? ""
-            for line in text.split(separator: "\n") {
-                guard let eq = line.firstIndex(of: "=") else { continue }
-                var value = String(line[line.index(after: eq)...])
-                if value.count >= 2, value.hasPrefix("'"), value.hasSuffix("'") {
-                    value = String(value.dropFirst().dropLast())
-                }
-                values[String(line[..<eq])] = value
-            }
-        }
+        let values = readEnv()
+        let fm = FileManager.default
         var result = SetupResult()
         result.sdkVersion = values["OT_SDK_VERSION"] ?? ""
         result.swiftVersion = values["OT_SWIFT_VERSION"] ?? ""
+        let names = ["MacOSX": "macOS", "iPhoneOS": "iOS", "AppleTVOS": "tvOS", "DriverKit": "DriverKit"]
+        result.platforms = (values["OT_PLATFORMS"] ?? "MacOSX").split(separator: " ").compactMap { names[String($0)] }
         result.toolchainName = "Swift \(result.swiftVersion)"
         result.xcconfig = home.appendingPathComponent("config/local.xcconfig").path
         result.binFolder = home.appendingPathComponent("bin").path
-        if withIDE, let copy = values["OT_XCODE_CLONE"], FileManager.default.fileExists(atPath: copy) {
-            result.xcodeCopy = copy
-        }
+        result.preparedXcode = Self.preparedXcode(in: values).flatMap { fm.fileExists(atPath: $0) ? $0 : nil }
+        result.unusedCopy = values["OT_UNUSED_COPY"].flatMap { fm.fileExists(atPath: $0) ? $0 : nil }
         return result
     }
 

@@ -1,0 +1,34 @@
+<?xml version="1.0" encoding="UTF-8"?>
+<document type="com.apple.InterfaceBuilder3.Cocoa.XIB" version="3.0" toolsVersion="23727" targetRuntime="MacOSX.Cocoa" propertyAccessControl="none" useAutolayout="YES" customObjectInstantitationMethod="direct">
+    <dependencies>
+        <plugIn identifier="com.apple.InterfaceBuilder.CocoaPlugin" version="23727"/>
+    </dependencies>
+    <objects>
+        <customObject id="-2" userLabel="File's Owner" customClass="CheckViewController" customModule="ToolCheck" customModuleProvider="target">
+            <connections>
+                <outlet property="label" destination="lbl-ot-001" id="con-ot-001"/>
+                <outlet property="view" destination="vew-ot-001" id="con-ot-002"/>
+            </connections>
+        </customObject>
+        <customObject id="-1" userLabel="First Responder" customClass="FirstResponder"/>
+        <customObject id="-3" userLabel="Application" customClass="NSObject"/>
+        <customView id="vew-ot-001">
+            <rect key="frame" x="0.0" y="0.0" width="480" height="200"/>
+            <autoresizingMask key="autoresizingMask" flexibleMaxX="YES" flexibleMinY="YES"/>
+            <subviews>
+                <textField horizontalHuggingPriority="251" verticalHuggingPriority="750" translatesAutoresizingMaskIntoConstraints="NO" id="lbl-ot-001">
+                    <rect key="frame" x="18" y="92" width="444" height="16"/>
+                    <textFieldCell key="cell" lineBreakMode="clipping" title="Checking" id="cel-ot-001">
+                        <font key="font" metaFont="system"/>
+                        <color key="textColor" name="labelColor" catalog="System" colorSpace="catalog"/>
+                        <color key="backgroundColor" name="textBackgroundColor" catalog="System" colorSpace="catalog"/>
+                    </textFieldCell>
+                </textField>
+            </subviews>
+            <constraints>
+                <constraint firstItem="lbl-ot-001" firstAttribute="centerY" secondItem="vew-ot-001" secondAttribute="centerY" id="cst-ot-001"/>
+                <constraint firstItem="lbl-ot-001" firstAttribute="leading" secondItem="vew-ot-001" secondAttribute="leading" constant="20" id="cst-ot-002"/>
+            </constraints>
+        </customView>
+    </objects>
+</document>

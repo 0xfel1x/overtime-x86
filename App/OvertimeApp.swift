@@ -81,13 +81,12 @@ final class AppDelegate: NSObject, NSApplicationDelegate {
 }
 
 /// Command-line mode with the same logic as the window:
-///   Overtime --headless [--inspect] [--no-ide] [--fetch] <Xcode.app> [<Xcode.app>]
+///   Overtime --headless [--inspect] [--fetch] <Xcode.app> [<Xcode.app>]
 /// --fetch gets the newer Xcode from the Downloads folder (it prints Apple's
 /// download link instead of opening the browser).
 enum Headless {
     static func run(_ arguments: [String]) -> Never {
         let model = SetupModel()
-        model.withIDE = !arguments.contains("--no-ide")
         model.add(arguments.filter { !$0.hasPrefix("--") }.map { URL(fileURLWithPath: $0) })
         setvbuf(stdout, nil, _IOLBF, 0)
 
@@ -138,8 +137,9 @@ enum Headless {
         model.onLine = { print($0) }
         model.onFinish = { success in
             if let result = model.result {
-                print("\nresult: SDK \(result.sdkVersion), Swift \(result.swiftVersion)")
-                print("xcode copy: \(result.xcodeCopy ?? "-")")
+                print("\nresult: SDK \(result.sdkVersion) (\(result.platforms.joined(separator: ", "))), Swift \(result.swiftVersion)")
+                print("xcode: \(result.preparedXcode ?? "-")")
+                if let unused = result.unusedCopy { print("unused copy: \(unused)") }
                 print("xcconfig: \(result.xcconfig)")
                 print("tools: \(result.binFolder)")
             }

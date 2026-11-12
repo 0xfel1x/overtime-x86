@@ -8,8 +8,9 @@ struct XcodeInfo: Equatable {
     let sdkVersion: String
     let archs: [String]
     let hasIntelSwiftInterfaces: Bool
-    /// True for the private copy made by scripts/make-xcode-clone.sh.
-    let isOvertimeCopy: Bool
+    /// True for an Xcode prepared by scripts/patch-xcode.sh (or a copy made by a
+    /// version before 3.0) while the newer SDK is switched on in it.
+    let isPrepared: Bool
 
     var runsOnIntel: Bool { archs.contains("x86_64") }
     var name: String { url.deletingPathExtension().lastPathComponent }
@@ -66,9 +67,9 @@ enum Inspector {
 
         let fm = FileManager.default
         let interface = sdk.appendingPathComponent("usr/lib/swift/Swift.swiftmodule/x86_64-apple-macos.swiftinterface")
-        // The private copy carries a symlink to an SDK outside its own bundle.
+        // A prepared Xcode carries a symlink to an SDK outside its own bundle.
         let entries = (try? fm.contentsOfDirectory(atPath: sdks.path)) ?? []
-        let isCopy = entries.contains { entry in
+        let prepared = entries.contains { entry in
             let target = try? fm.destinationOfSymbolicLink(atPath: sdks.appendingPathComponent(entry).path)
             return target?.hasPrefix("/") ?? false
         }
@@ -79,7 +80,7 @@ enum Inspector {
             sdkVersion: sdkVersion,
             archs: machOArchs(url.appendingPathComponent("Contents/MacOS/Xcode")),
             hasIntelSwiftInterfaces: fm.fileExists(atPath: interface.path),
-            isOvertimeCopy: isCopy
+            isPrepared: prepared
         )
     }
 
@@ -115,7 +116,7 @@ enum Inspector {
         }
     }
 
-    /// Xcode apps in the usual places, including copies Overtime prepared earlier.
+    /// Xcode apps in the usual places, including ones Overtime prepared earlier.
     static func findInstalled() -> [XcodeInfo] {
         let fm = FileManager.default
         let folders = [

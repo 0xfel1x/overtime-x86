@@ -16,7 +16,7 @@ struct ContentView: View {
             }
 
             if let prepared = model.prepared, !model.isRunning {
-                SwitchView(prepared: prepared) { model.setSDK(active: $0) }
+                SwitchView(prepared: prepared, error: model.switchError) { model.setSDK(active: $0) }
             }
 
             if let result = model.result {
@@ -108,17 +108,6 @@ struct ContentView: View {
             Label(warning, systemImage: "exclamationmark.triangle.fill")
                 .foregroundStyle(.orange)
                 .fixedSize(horizontal: false, vertical: true)
-        }
-
-        if !model.isRunning {
-            Toggle(isOn: $model.withIDE) {
-                VStack(alignment: .leading, spacing: 2) {
-                    Text("Also prepare Xcode itself")
-                    Text("Puts a private copy of your Xcode that builds with the new SDK into the Applications folder. It takes almost no extra disk space, and your installed Xcode stays untouched.")
-                        .font(.caption).foregroundStyle(.secondary)
-                        .fixedSize(horizontal: false, vertical: true)
-                }
-            }
         }
 
         HStack(spacing: 12) {
@@ -216,19 +205,23 @@ private struct SlotView: View {
 /// On/off switch for the newer SDK in the Xcode prepared earlier.
 private struct SwitchView: View {
     let prepared: (name: String, sdkVersion: String, active: Bool)
+    let error: String?
     let set: (Bool) -> Void
 
     var body: some View {
         GroupBox {
             Toggle(isOn: Binding(get: { prepared.active }, set: set)) {
                 VStack(alignment: .leading, spacing: 2) {
-                    Text("Use macOS SDK \(prepared.sdkVersion) in “\(prepared.name)”").font(.headline)
-                    Text(prepared.active
-                         ? "On: projects build with the new SDK. Plain swiftc and swift build in the Terminal can fail with it; use ot-swiftc and ot-swift there, or switch off."
-                         : "Off: this Xcode behaves exactly as before, in its window and in the Terminal. Switch on to build with the new SDK.")
+                    Text("Overtime-patch").font(.headline)
+                    Text("Use this toggle to switch off Overtime patches if something doesn't work the way it should. If toggled off, Xcode behaves the same way as it would without the patch.")
                         .font(.caption).foregroundStyle(.secondary)
                         .fixedSize(horizontal: false, vertical: true)
                     Text("Restart Xcode after switching.").font(.caption).foregroundStyle(.secondary)
+                    if let error {
+                        Text(error).font(.caption).foregroundStyle(.red)
+                            .fixedSize(horizontal: false, vertical: true)
+                            .textSelection(.enabled)
+                    }
                 }
             }
             .toggleStyle(.switch)
@@ -320,21 +313,23 @@ private struct ResultView: View {
     var body: some View {
         GroupBox {
             VStack(alignment: .leading, spacing: 14) {
-                Label("Ready: macOS SDK \(result.sdkVersion) with Swift \(result.swiftVersion)",
+                Label("Ready: SDK \(result.sdkVersion) for \(ListFormatter.localizedString(byJoining: result.platforms)) with Swift \(result.swiftVersion)",
                       systemImage: "checkmark.seal.fill")
                     .font(.headline).foregroundStyle(.green)
 
-                if let copy = result.xcodeCopy {
-                    let name = URL(fileURLWithPath: copy).deletingPathExtension().lastPathComponent
+                if let xcode = result.preparedXcode {
+                    let name = URL(fileURLWithPath: xcode).deletingPathExtension().lastPathComponent
                     row(title: "In Xcode",
-                        text: "Open your projects with “\(name)”. It builds with the new SDK and the matching Swift compiler by itself; nothing needs to be changed in the project.") {
-                        Button("Open \(name)") { NSWorkspace.shared.open(URL(fileURLWithPath: copy)) }
-                        Button("Show in Finder") { reveal(copy) }
+                        text: "Your Xcode now builds with the new SDK and the matching Swift compiler by itself; nothing needs to be changed in the project. While the patch is on, it is called “Xcode SDK \(result.sdkVersion)” in the menu bar and the Dock. Restart Xcode if it is open.") {
+                        Button("Open \(name)") { NSWorkspace.shared.open(URL(fileURLWithPath: xcode)) }
+                        Button("Show in Finder") { reveal(xcode) }
                     }
-                } else {
-                    row(title: "In Xcode",
-                        text: "Not prepared. To build in the Xcode window, start over and switch on “Also prepare Xcode itself”.") {
-                        EmptyView()
+                }
+                if let unused = result.unusedCopy {
+                    let name = URL(fileURLWithPath: unused).deletingPathExtension().lastPathComponent
+                    row(title: "Earlier copy",
+                        text: "“\(name)” was made by an earlier version of Overtime and is no longer needed. You can move it to the Trash.") {
+                        Button("Show in Finder") { reveal(unused) }
                     }
                 }
                 row(title: "In Terminal",
