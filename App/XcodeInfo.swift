@@ -138,21 +138,32 @@ enum Inspector {
     }
 }
 
-/// The newest Xcode that still runs on Intel, for a given macOS.
+/// The newest Xcode that runs on Intel, for a given macOS.
 ///
-/// Xcode 27 is Apple silicon only, so this list is final: 26.6 is the last
-/// universal Xcode and needs macOS 26.2; on macOS 15.6 to 26.1 the last one is 26.3.
+/// Xcode 27 is Apple silicon only, so the list ends with 26.6. The entries for
+/// macOS 15.6 and later are the ones Overtime is tested with; the older ones are
+/// the last Xcode of each macOS and may need manual changes.
 struct BaseXcode: Equatable {
     let version: String
     let minimumOS: OperatingSystemVersion
-    /// Path of the universal download on Apple's developer site.
+    /// Path of the download on Apple's developer site.
     let downloadPath: String
+    let tested: Bool
 
+    private init(_ version: String, os major: Int, _ minor: Int, _ file: String, tested: Bool) {
+        self.version = version
+        self.minimumOS = OperatingSystemVersion(majorVersion: major, minorVersion: minor, patchVersion: 0)
+        self.downloadPath = "/Developer_Tools/Xcode_\(version)/\(file)"
+        self.tested = tested
+    }
+
+    /// Newest first.
     static let all = [
-        BaseXcode(version: "26.6", minimumOS: OperatingSystemVersion(majorVersion: 26, minorVersion: 2, patchVersion: 0),
-                  downloadPath: "/Developer_Tools/Xcode_26.6/Xcode_26.6_Universal.xip"),
-        BaseXcode(version: "26.3", minimumOS: OperatingSystemVersion(majorVersion: 15, minorVersion: 6, patchVersion: 0),
-                  downloadPath: "/Developer_Tools/Xcode_26.3/Xcode_26.3_Universal.xip"),
+        BaseXcode("26.6", os: 26, 2, "Xcode_26.6_Universal.xip", tested: true),   // Tahoe
+        BaseXcode("26.3", os: 15, 6, "Xcode_26.3_Universal.xip", tested: true),   // Sequoia
+        BaseXcode("16.2", os: 14, 5, "Xcode_16.2.xip", tested: false),            // Sonoma
+        BaseXcode("15.2", os: 13, 5, "Xcode_15.2.xip", tested: false),            // Ventura
+        BaseXcode("14.2", os: 12, 5, "Xcode_14.2.xip", tested: false),            // Monterey
     ]
 
     static func == (a: BaseXcode, b: BaseXcode) -> Bool { a.version == b.version }

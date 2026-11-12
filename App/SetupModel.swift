@@ -36,6 +36,8 @@ final class SetupModel: ObservableObject {
     @Published var phase: Phase = .idle
     @Published var log = ""
     @Published var result: SetupResult?
+    /// The Xcode prepared earlier, and whether the newer SDK is switched on in it.
+    @Published var prepared: (name: String, sdkVersion: String, active: Bool)?
 
     /// Called with every finished output line (used by the command-line mode).
     var onLine: ((String) -> Void)?
@@ -100,15 +102,16 @@ final class SetupModel: ObservableObject {
         guard !isAppleSilicon else { return nil }
         guard let best = recommendedBase else {
             let oldest = BaseXcode.all.last!
-            return ("This Mac runs \(systemText). Overtime is tested with Xcode \(oldest.version) on macOS \(oldest.minimumOSText) or later. Older systems with an older Xcode are untested and may need manual changes.", nil)
+            return ("This Mac runs \(systemText). The oldest setup Overtime knows is Xcode \(oldest.version) on macOS \(oldest.minimumOSText).", nil)
         }
+        let caution = best.tested ? "" : " This combination is not tested by Overtime and may need manual changes."
         guard let host else {
-            return ("No Xcode found. For \(systemText) the newest Xcode that runs on Intel is \(best.version).", best)
+            return ("No Xcode found. For \(systemText) the newest Xcode that runs on Intel is \(best.version).\(caution)", best)
         }
         if Inspector.isNewer(best.version, than: host.version) {
-            return ("For \(systemText) the newest Xcode that runs on Intel is \(best.version). Yours is \(host.version): it works, but \(best.version) brings newer tools.", best)
+            return ("For \(systemText) the newest Xcode that runs on Intel is \(best.version); yours is \(host.version).\(caution)", best)
         }
-        return nil
+        return best.tested ? nil : ("Xcode \(host.version) on \(systemText) is not tested by Overtime and may need manual changes.", nil)
     }
 
     var missing: String? {
@@ -125,9 +128,53 @@ final class SetupModel: ObservableObject {
         !isRunning && !fetcher.isBusy && !isAppleSilicon && host != nil && newer != nil && problem == nil
     }
 
+    // MARK: Switching the SDK on and off
+
+    private func readEnv() -> [String: String] {
+        var values: [String: String] = [:]
+        for file in ["sdk.env", "toolchain.env", "clone.env"] {
+            let text = (try? String(contentsOf: home.appendingPathComponent(file), encoding: .utf8)) ?? ""
+            for line in text.split(separator: "\n") {
+                guard let eq = line.firstIndex(of: "=") else { continue }
+                var value = String(line[line.index(after: eq)...])
+                if value.count >= 2, value.hasPrefix("'"), value.hasSuffix("'") { value = String(value.dropFirst().dropLast()) }
+                values[String(line[..<eq])] = value
+            }
+        }
+        return values
+    }
+
+    func refreshPrepared() {
+        let env = readEnv()
+        guard let copy = env["OT_XCODE_CLONE"], let sdk = env["OT_SDK"], let version = env["OT_SDK_VERSION"],
+              FileManager.default.fileExists(atPath: copy) else {
+            prepared = nil
+            return
+        }
+        let link = "\(copy)/Contents/Developer/Platforms/MacOSX.platform/Developer/SDKs/MacOSX\(version).sdk"
+        let active = (try? FileManager.default.destinationOfSymbolicLink(atPath: link)) == sdk
+        prepared = (URL(fileURLWithPath: copy).deletingPathExtension().lastPathComponent, version, active)
+    }
+
+    /// Adds or removes the link to the SDK copy; the same as scripts/sdk-switch.sh.
+    func setSDK(active: Bool) {
+        let env = readEnv()
+        guard let copy = env["OT_XCODE_CLONE"], let sdk = env["OT_SDK"], let version = env["OT_SDK_VERSION"] else { return }
+        let link = "\(copy)/Contents/Developer/Platforms/MacOSX.platform/Developer/SDKs/MacOSX\(version).sdk"
+        let fm = FileManager.default
+        do {
+            if (try? fm.destinationOfSymbolicLink(atPath: link)) != nil { try fm.removeItem(atPath: link) }
+            if active { try fm.createSymbolicLink(atPath: link, withDestinationPath: sdk) }
+        } catch {
+            notice = "Could not switch the SDK: \(error.localizedDescription)"
+        }
+        refreshPrepared()
+    }
+
     // MARK: Choosing the Xcodes
 
     func autodetect() {
+        refreshPrepared()
         let found = Inspector.findInstalled()
         // Prefer an untouched Xcode; fall back to a copy Overtime prepared earlier.
         let intel = found.filter(\.runsOnIntel)
@@ -243,7 +290,7 @@ final class SetupModel: ObservableObject {
         }
         let fm = FileManager.default
         try fm.createDirectory(at: home, withIntermediateDirectories: true)
-        for folder in ["lib", "scripts", "bin"] {
+        for folder in ["lib", "scripts", "bin"] {  // includes sdk-switch.sh and ot-sdk
             let target = home.appendingPathComponent(folder)
             if fm.fileExists(atPath: target.path) { try fm.removeItem(at: target) }
             try fm.copyItem(at: payload.appendingPathComponent(folder), to: target)
@@ -316,6 +363,7 @@ final class SetupModel: ObservableObject {
 
     private func finish(success: Bool) {
         phase = success ? .done : .failed
+        refreshPrepared()
         if success {
             result = loadResult()
             // The Xcode Overtime unpacked itself is only a source for the SDK copy.

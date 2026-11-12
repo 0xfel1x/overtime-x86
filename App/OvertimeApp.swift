@@ -17,14 +17,19 @@ struct OvertimeApp: App {
     @StateObject private var model = SetupModel()
 
     var body: some Scene {
-        Window("Overtime", id: "main") {
+        WindowGroup("Overtime") {
             ContentView(model: model)
                 .onAppear {
+                    // One fixed-size window (the scene modifiers for this need macOS 13).
+                    NSWindow.allowsAutomaticWindowTabbing = false
+                    DispatchQueue.main.async {
+                        NSApp.windows.forEach { $0.styleMask.remove(.resizable) }
+                    }
                     model.autodetect()
                     delegate.developerAids(model)
                 }
         }
-        .windowResizability(.contentSize)
+        .commands { CommandGroup(replacing: .newItem) {} }
     }
 }
 

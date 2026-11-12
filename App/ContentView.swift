@@ -15,6 +15,10 @@ struct ContentView: View {
                     .fixedSize(horizontal: false, vertical: true)
             }
 
+            if let prepared = model.prepared, !model.isRunning {
+                SwitchView(prepared: prepared) { model.setSDK(active: $0) }
+            }
+
             if let result = model.result {
                 ResultView(result: result)
                 Button("Start Over") { model.startOver() }
@@ -43,6 +47,13 @@ struct ContentView: View {
         }
         .padding(22)
         .frame(width: 600)
+        .fixedSize(horizontal: false, vertical: true)
+        // Keep the window exactly as large as its content (works on macOS 12 too).
+        .background(GeometryReader { geometry in
+            Color.clear
+                .onAppear { fitWindow(geometry.size) }
+                .onChange(of: geometry.size) { fitWindow($0) }
+        })
         .onDrop(of: [.fileURL], isTargeted: $dropTargeted) { providers in
             for provider in providers {
                 _ = provider.loadObject(ofClass: URL.self) { url, _ in
@@ -138,6 +149,15 @@ struct ContentView: View {
         }
     }
 
+    private func fitWindow(_ size: CGSize) {
+        DispatchQueue.main.async {
+            guard let window = NSApp.windows.first(where: { $0.isVisible }) else { return }
+            let top = window.frame.maxY
+            window.setContentSize(size)
+            window.setFrameTopLeftPoint(NSPoint(x: window.frame.minX, y: top))
+        }
+    }
+
     private func choose() {
         let panel = NSOpenPanel()
         panel.allowedContentTypes = [.applicationBundle]
@@ -190,6 +210,31 @@ private struct SlotView: View {
                 .strokeBorder(highlighted ? Color.accentColor : Color.secondary.opacity(0.45),
                               style: StrokeStyle(lineWidth: 1.5, dash: info == nil ? [6, 4] : []))
         )
+    }
+}
+
+/// On/off switch for the newer SDK in the Xcode prepared earlier.
+private struct SwitchView: View {
+    let prepared: (name: String, sdkVersion: String, active: Bool)
+    let set: (Bool) -> Void
+
+    var body: some View {
+        GroupBox {
+            Toggle(isOn: Binding(get: { prepared.active }, set: set)) {
+                VStack(alignment: .leading, spacing: 2) {
+                    Text("Use macOS SDK \(prepared.sdkVersion) in “\(prepared.name)”").font(.headline)
+                    Text(prepared.active
+                         ? "On: projects build with the new SDK. Plain swiftc and swift build in the Terminal can fail with it; use ot-swiftc and ot-swift there, or switch off."
+                         : "Off: this Xcode behaves exactly as before, in its window and in the Terminal. Switch on to build with the new SDK.")
+                        .font(.caption).foregroundStyle(.secondary)
+                        .fixedSize(horizontal: false, vertical: true)
+                    Text("Restart Xcode after switching.").font(.caption).foregroundStyle(.secondary)
+                }
+            }
+            .toggleStyle(.switch)
+            .padding(4)
+            .frame(maxWidth: .infinity, alignment: .leading)
+        }
     }
 }
 

@@ -51,12 +51,13 @@ the Terminal.
 
 Overtime tells you which Xcode fits your macOS and offers the download:
 
-| Your macOS | Newest Xcode that runs on Intel |
-| --- | --- |
-| 26.2 or later (Tahoe) | Xcode 26.6 |
-| 15.6 to 26.1 | Xcode 26.3 |
-
-Older systems with an older Xcode are untested and may need manual changes.
+| Your macOS | Xcode to use | Status |
+| --- | --- | --- |
+| Tahoe 26.2 or later | 26.6 | supported |
+| Sequoia 15.6 or later | 26.3 | supported, tested |
+| Sonoma 14.5 or later | 16.2 | untested |
+| Ventura 13.5 or later | 15.2 | untested |
+| Monterey 12.5 or later | 14.2 | untested, reported to work with manual changes |
 
 - An **Intel Mac** (obviously) with the Xcode you use today. Tested on macOS Sequoia 15
   with Xcode 26.3 and the SDK from Xcode 27.2.
@@ -81,12 +82,19 @@ Base SDK shows the SDK in use.
 | `ot-clang`, `ot-clang++` | C, C++, Objective-C |
 | `ot-swiftc` | Swift compiler |
 | `ot-swift build/run/test` | Swift Package Manager |
+| `ot-sdk on/off/status` | Switch the new SDK on or off in the prepared Xcode |
 
 ```sh
 ot-swiftc -target x86_64-apple-macos13 main.swift -o app
 ot-swift build -c release
 otool -l app | grep -A5 LC_BUILD_VERSION   # shows the newer SDK version
 ```
+
+**Switching it off:** with the new SDK in place, plain `swiftc`, `swift build` and
+`xcodebuild` in the Terminal pick it up too, with a compiler that cannot read it. The
+switch at the top of the Overtime window, or `ot-sdk off`, removes the SDK from the
+prepared Xcode so that it behaves exactly as before; `ot-sdk on` brings it back. Restart
+Xcode after switching.
 
 To pin SDK, compiler and architecture for a single project, add an `.xcconfig` file to it
 that contains `#include "<home>/Library/Developer/Overtime/config/local.xcconfig"` and

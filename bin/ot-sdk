@@ -1,0 +1,3 @@
+#!/bin/zsh
+# Switch the newer SDK on or off in the prepared Xcode: ot-sdk on|off|status
+exec "${0:A:h}/../scripts/sdk-switch.sh" "$@"
