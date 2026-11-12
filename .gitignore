@@ -47,3 +47,6 @@ Package.resolved
 
 # Local example project, not part of the repository
 Example/
+
+# Private planning notes
+ROADMAP-*.md
