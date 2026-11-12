@@ -35,6 +35,20 @@ if [[ ! -x $dest/usr/bin/swiftc ]]; then
     mv -- "$payload" "$dest"
 fi
 
+# The swift.org toolchain ships no Apple linker, and its clang looks for "ld" next to
+# itself before falling back to PATH. When Xcode resolves Swift packages it compiles
+# their manifests with this toolchain and a PATH that has no linker, which fails with
+# "posix_spawn failed". A small forwarder to the active Xcode's linker fixes that.
+if [[ ! -e $dest/usr/bin/ld ]]; then
+    cat > "$dest/usr/bin/ld" <<'FORWARD'
+#!/bin/sh
+# Added by Overtime: hand over to the linker of the active Xcode.
+dev=${DEVELOPER_DIR:-$(/usr/bin/xcode-select -p)}
+exec "$dev/Toolchains/XcodeDefault.xctoolchain/usr/bin/ld" "$@"
+FORWARD
+    chmod +x "$dest/usr/bin/ld"
+fi
+
 archs=$(lipo -archs "$dest/usr/bin/swift-frontend")
 [[ $archs == *x86_64* ]] || ot_die "toolchain has no x86_64 slice ($archs)"
 id=$(plutil -extract CFBundleIdentifier raw "$dest/Info.plist")

@@ -93,7 +93,8 @@ select it under Project > Info > Configurations.
    checks the swift.org Developer ID signature and notarization, and installs it to
    `~/Library/Developer/Toolchains`. It records the toolchain in the SDK copy's settings,
    which is how the Xcode build system finds the matching compiler without a project
-   setting.
+   setting. It also adds a small `ld` forwarder to the toolchain so that Swift package
+   manifests link.
 3. `scripts/make-xcode-clone.sh` makes an APFS clone of your Xcode (almost no extra disk
    space) and links the SDK copy into it. The Xcode build system only resolves SDKs inside
    its own platform folder; as the newest SDK there, it becomes the default. Your installed
