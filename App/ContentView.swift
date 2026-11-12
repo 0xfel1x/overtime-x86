@@ -68,9 +68,22 @@ struct ContentView: View {
             SlotView(title: "Xcode that runs on this Mac",
                      placeholder: "Drop the Xcode you use today",
                      info: model.host, highlighted: dropTargeted) { choose() }
+            if let advice = model.baseAdvice {
+                HStack(alignment: .firstTextBaseline, spacing: 8) {
+                    Image(systemName: "info.circle").foregroundStyle(.secondary)
+                    Text(advice.text).font(.callout).foregroundStyle(.secondary)
+                        .fixedSize(horizontal: false, vertical: true)
+                    Spacer(minLength: 4)
+                    if let offer = advice.offer {
+                        Button("Get Xcode \(offer.version)") { NSWorkspace.shared.open(offer.downloadURL) }
+                            .controlSize(.small)
+                    }
+                }
+                .padding(.horizontal, 4)
+            }
             if model.fetcher.phase == .idle {
                 SlotView(title: "Newer Xcode (only its SDK is read)",
-                         placeholder: "Drop the newer Xcode, or let Overtime get it",
+                         placeholder: "Drop it here or get it",
                          info: model.newer, highlighted: dropTargeted,
                          primaryTitle: model.newer == nil ? "Get Newest Xcode" : nil,
                          primary: { model.fetcher.start() }) { choose() }

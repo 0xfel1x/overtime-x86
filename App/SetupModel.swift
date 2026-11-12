@@ -43,6 +43,9 @@ final class SetupModel: ObservableObject {
 
     let home: URL
     let isAppleSilicon: Bool
+    /// macOS of this Mac and the newest Intel-capable Xcode for it.
+    let system: OperatingSystemVersion
+    let recommendedBase: BaseXcode?
     /// Downloads and unpacks the newest Xcode on request.
     let fetcher: XcodeFetcher
     private var fetcherChanges: AnyCancellable?
@@ -65,6 +68,13 @@ final class SetupModel: ObservableObject {
         sysctlbyname("sysctl.proc_translated", &translated, &size, nil, 0)
         isAppleSilicon = translated == 1
 
+        // OVERTIME_FAKE_OS=26.4 lets developers try the advice for another macOS.
+        var os = ProcessInfo.processInfo.operatingSystemVersion
+        let fake = (env["OVERTIME_FAKE_OS"] ?? "").split(separator: ".").compactMap { Int($0) }
+        if fake.count >= 2 { os = OperatingSystemVersion(majorVersion: fake[0], minorVersion: fake[1], patchVersion: 0) }
+        system = os
+        recommendedBase = BaseXcode.recommended(for: os)
+
         fetcher = XcodeFetcher(workFolder: home.appendingPathComponent("Xcode-download"))
         fetcher.onReady = { [weak self] url in self?.add([url]) }
         fetcherChanges = fetcher.objectWillChange.sink { [weak self] in self?.objectWillChange.send() }
@@ -79,6 +89,24 @@ final class SetupModel: ObservableObject {
         }
         if let host, let newer, !Inspector.isNewer(newer.sdkVersion, than: host.sdkVersion) {
             return "\(newer.name) (SDK \(newer.sdkVersion)) is not newer than \(host.name) (SDK \(host.sdkVersion))."
+        }
+        return nil
+    }
+
+    var systemText: String { "macOS \(system.majorVersion).\(system.minorVersion)" }
+
+    /// Advice about the Xcode that runs on this Mac, and whether a download is offered.
+    var baseAdvice: (text: String, offer: BaseXcode?)? {
+        guard !isAppleSilicon else { return nil }
+        guard let best = recommendedBase else {
+            let oldest = BaseXcode.all.last!
+            return ("This Mac runs \(systemText). Overtime is tested with Xcode \(oldest.version) on macOS \(oldest.minimumOSText) or later. Older systems with an older Xcode are untested and may need manual changes.", nil)
+        }
+        guard let host else {
+            return ("No Xcode found. For \(systemText) the newest Xcode that runs on Intel is \(best.version).", best)
+        }
+        if Inspector.isNewer(best.version, than: host.version) {
+            return ("For \(systemText) the newest Xcode that runs on Intel is \(best.version). Yours is \(host.version): it works, but \(best.version) brings newer tools.", best)
         }
         return nil
     }
@@ -101,7 +129,9 @@ final class SetupModel: ObservableObject {
 
     func autodetect() {
         let found = Inspector.findInstalled()
-        host = found.filter(\.runsOnIntel)
+        // Prefer an untouched Xcode; fall back to a copy Overtime prepared earlier.
+        let intel = found.filter(\.runsOnIntel)
+        host = (intel.filter { !$0.isOvertimeCopy }.isEmpty ? intel : intel.filter { !$0.isOvertimeCopy })
             .max { Inspector.isNewer($1.version, than: $0.version) }
         newer = found.filter { !$0.runsOnIntel }
             .max { Inspector.isNewer($1.sdkVersion, than: $0.sdkVersion) }
@@ -118,9 +148,17 @@ final class SetupModel: ObservableObject {
                 continue
             }
             do {
-                let info = try Inspector.inspect(url)
-                if info.isOvertimeCopy {
-                    notice = "“\(info.name)” is the copy Overtime made earlier. Drop your original Xcode instead."
+                var info = try Inspector.inspect(url)
+                // An Intel-capable Xcode unpacked by Overtime is one to keep: move
+                // it out of the temporary folder into the Applications folder.
+                let unpackFolder = fetcher.workFolder.resolvingSymlinksInPath().standardizedFileURL.path
+                if info.runsOnIntel, info.url.path.hasPrefix(unpackFolder + "/") {
+                    info = try Inspector.inspect(try install(info))
+                }
+                if info.isOvertimeCopy, info.runsOnIntel {
+                    // No untouched Xcode needed: a copy prepared earlier is updated in place.
+                    host = info
+                    notice = "“\(info.name)” was prepared by Overtime before. It will be updated in place."
                 } else if info.runsOnIntel {
                     if let old = host, old.url != info.url, newer == nil {
                         notice = "\(info.name) runs on this Mac, so it replaced \(old.name). The second place is for the newer Xcode that does not open on this Mac."
@@ -146,6 +184,20 @@ final class SetupModel: ObservableObject {
         steps = []
         result = nil
         if let newer, !FileManager.default.fileExists(atPath: newer.url.path) { self.newer = nil }
+    }
+
+    private func install(_ info: XcodeInfo) throws -> URL {
+        let fm = FileManager.default
+        var folder = URL(fileURLWithPath: "/Applications")
+        if !fm.isWritableFile(atPath: folder.path) {
+            folder = fm.homeDirectoryForCurrentUser.appendingPathComponent("Applications")
+            try fm.createDirectory(at: folder, withIntermediateDirectories: true)
+        }
+        var target = folder.appendingPathComponent("Xcode.app")
+        if fm.fileExists(atPath: target.path) { target = folder.appendingPathComponent("Xcode-\(info.version).app") }
+        if fm.fileExists(atPath: target.path) { return info.url }
+        try fm.moveItem(at: info.url, to: target)
+        return target
     }
 
     // MARK: Running
@@ -215,6 +267,7 @@ final class SetupModel: ObservableObject {
         env["OT_HOME"] = home.path
         env["OT_HOST_XCODE"] = host.url.path
         env["OT_NEW_XCODE"] = newer.url.path
+        if host.isOvertimeCopy { env["OT_CLONE"] = host.url.path }
         env.removeValue(forKey: "OT_ROOT")
         task.environment = env
         let pipe = Pipe()

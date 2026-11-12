@@ -115,7 +115,7 @@ enum Inspector {
         }
     }
 
-    /// Xcode apps in the usual places, without the copies Overtime made itself.
+    /// Xcode apps in the usual places, including copies Overtime prepared earlier.
     static func findInstalled() -> [XcodeInfo] {
         let fm = FileManager.default
         let folders = [
@@ -127,7 +127,7 @@ enum Inspector {
         for folder in folders {
             let items = (try? fm.contentsOfDirectory(at: folder, includingPropertiesForKeys: nil)) ?? []
             for item in items where item.pathExtension == "app" && item.lastPathComponent.hasPrefix("Xcode") {
-                if let info = try? inspect(item), !info.isOvertimeCopy { found.append(info) }
+                if let info = try? inspect(item) { found.append(info) }
             }
         }
         return found
@@ -136,4 +136,38 @@ enum Inspector {
     static func isNewer(_ a: String, than b: String) -> Bool {
         a.compare(b, options: .numeric) == .orderedDescending
     }
+}
+
+/// The newest Xcode that still runs on Intel, for a given macOS.
+///
+/// Xcode 27 is Apple silicon only, so this list is final: 26.6 is the last
+/// universal Xcode and needs macOS 26.2; on macOS 15.6 to 26.1 the last one is 26.3.
+struct BaseXcode: Equatable {
+    let version: String
+    let minimumOS: OperatingSystemVersion
+    /// Path of the universal download on Apple's developer site.
+    let downloadPath: String
+
+    static let all = [
+        BaseXcode(version: "26.6", minimumOS: OperatingSystemVersion(majorVersion: 26, minorVersion: 2, patchVersion: 0),
+                  downloadPath: "/Developer_Tools/Xcode_26.6/Xcode_26.6_Universal.xip"),
+        BaseXcode(version: "26.3", minimumOS: OperatingSystemVersion(majorVersion: 15, minorVersion: 6, patchVersion: 0),
+                  downloadPath: "/Developer_Tools/Xcode_26.3/Xcode_26.3_Universal.xip"),
+    ]
+
+    static func == (a: BaseXcode, b: BaseXcode) -> Bool { a.version == b.version }
+
+    /// Newest entry whose macOS requirement the given system meets, or nil when
+    /// the system is too old for all of them.
+    static func recommended(for os: OperatingSystemVersion) -> BaseXcode? {
+        all.first { entry in
+            (os.majorVersion, os.minorVersion) >= (entry.minimumOS.majorVersion, entry.minimumOS.minorVersion)
+        }
+    }
+
+    var downloadURL: URL {
+        URL(string: "https://developer.apple.com/services-account/download?path=\(downloadPath)")!
+    }
+
+    var minimumOSText: String { "\(minimumOS.majorVersion).\(minimumOS.minorVersion)" }
 }

@@ -38,6 +38,11 @@ else
 fi
 
 sdks="$clone/Contents/Developer/Platforms/MacOSX.platform/Developer/SDKs"
+# Drop links from an earlier run (they are the only absolute links in that folder),
+# so that a newer SDK version does not leave the previous one behind.
+for old in "$sdks"/*.sdk(N@); do
+    [[ $(readlink "$old") == /* ]] && rm -f -- "$old"
+done
 ln -sfn -- "$OT_SDK" "$sdks/MacOSX$OT_SDK_VERSION.sdk"
 DEVELOPER_DIR="$clone/Contents/Developer" xcodebuild -showsdks 2>/dev/null | grep -q "$OT_SDK_CANONICAL" \
     || ot_die "the clone does not list $OT_SDK_CANONICAL"

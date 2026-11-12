@@ -49,6 +49,15 @@ the Terminal.
 
 ### What you need
 
+Overtime tells you which Xcode fits your macOS and offers the download:
+
+| Your macOS | Newest Xcode that runs on Intel |
+| --- | --- |
+| 26.2 or later (Tahoe) | Xcode 26.6 |
+| 15.6 to 26.1 | Xcode 26.3 |
+
+Older systems with an older Xcode are untested and may need manual changes.
+
 - An **Intel Mac** (obviously) with the Xcode you use today. Tested on macOS Sequoia 15
   with Xcode 26.3 and the SDK from Xcode 27.2.
 - A free Apple Account to download Xcode from Apple.

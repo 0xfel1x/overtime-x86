@@ -123,6 +123,9 @@ enum Headless {
                 print("\(label): -")
             }
         }
+        if let advice = model.baseAdvice {
+            print("base: \(advice.text)" + (advice.offer.map { " [\($0.downloadURL.absoluteString)]" } ?? ""))
+        }
         if let message = model.notice ?? model.problem ?? model.missing { print("note: \(message)") }
         if arguments.contains("--inspect") { exit(model.canStart ? 0 : 1) }
         guard model.canStart else { exit(1) }
