@@ -49,7 +49,7 @@ the Terminal.
 
 ### What you need
 
-- An **Intel Mac** (Apple hardware) with the Xcode you use today. Tested on macOS Sequoia 15
+- An **Intel Mac** (obviously) with the Xcode you use today. Tested on macOS Sequoia 15
   with Xcode 26.3 and the SDK from Xcode 27.2.
 - A free Apple Account to download Xcode from Apple.
 - About 25 GB of free disk space during the setup (the unpacked newer Xcode is removed
